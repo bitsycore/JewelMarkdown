@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -66,22 +65,23 @@ private fun DecoratedWindowScope.AppTitleBar(inState: AppState) {
 	// Subtle ambient accent tinting the title bar (matches the configured app gradient).
 	val vTitleAccent = inState.settings.gradient.titleAccent(inState.isDark)
 	TitleBar(modifier = Modifier.newFullscreenControls(), gradientStartColor = vTitleAccent) {
-		Text(
-			"Jewel Markdown",
-			modifier = Modifier.align(Alignment.Start).padding(start = 12.dp),
-			fontWeight = FontWeight.SemiBold,
-		)
+		// Left: the File / Edit / View menus live in the title bar itself.
+		AppMenus(inState, Modifier.align(Alignment.Start).padding(start = 8.dp))
 
-		Text(inState.windowTitle())
+		// Center: the active document name (dirty dot), without the app name.
+		val vDoc = inState.active
+		Text((if (vDoc.isDirty) "● " else "") + vDoc.title)
 
+		// Right: view-mode icons, settings and theme toggle.
 		Row(
-			modifier = Modifier.align(Alignment.End).padding(end = 12.dp),
-			horizontalArrangement = Arrangement.spacedBy(8.dp),
+			modifier = Modifier.align(Alignment.End).padding(end = 8.dp),
+			horizontalArrangement = Arrangement.spacedBy(6.dp),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
+			ViewModeIcons(inState)
 			OutlinedButton(onClick = { inState.showSettings = true }) { Text("Settings") }
 			OutlinedButton(onClick = { inState.isDark = !inState.isDark }) {
-				Text(if (inState.isDark) "Light mode" else "Dark mode")
+				Text(if (inState.isDark) "Light" else "Dark")
 			}
 		}
 	}

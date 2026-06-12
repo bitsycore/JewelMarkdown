@@ -77,8 +77,6 @@ fun AppBody(inState: AppState) {
 				Divider(Orientation.Vertical, Modifier.fillMaxHeight(), color = vBorder)
 			}
 			Column(Modifier.weight(1f).fillMaxHeight()) {
-				MenuBar(inState)
-				Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
 				TabStrip(inState)
 				EditorAndPreview(inState, Modifier.weight(1f).fillMaxWidth())
 				if (vSettings.showStatusBar) {
@@ -100,11 +98,11 @@ fun AppBody(inState: AppState) {
 // Compact File / Edit / View menu bar on the left, and a small-icon view-mode switch on the
 // right. Replaces the old button toolbar to save space and provide standard menus.
 @Composable
-private fun MenuBar(inState: AppState) {
+internal fun AppMenus(inState: AppState, inModifier: Modifier = Modifier) {
 	// Which top-level menu is open (by label), shared so hovering switches between them.
 	var vOpenMenu by remember { mutableStateOf<String?>(null) }
 	Row(
-		modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 3.dp),
+		modifier = inModifier,
 		horizontalArrangement = Arrangement.spacedBy(2.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
@@ -140,8 +138,6 @@ private fun MenuBar(inState: AppState) {
 			separator()
 			menuItem("Settings…") { vClose(); inState.showSettings = true }
 		}
-		Spacer(Modifier.weight(1f))
-		ViewModeIcons(inState)
 	}
 }
 
@@ -204,7 +200,7 @@ private fun MenuScope.menuItem(inLabel: String, inSelected: Boolean = false, inO
 
 // Small-icon switch between Editor, Split and Preview layouts.
 @Composable
-private fun ViewModeIcons(inState: AppState) {
+internal fun ViewModeIcons(inState: AppState) {
 	Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
 		ViewModeIconButton(ViewMode.Editor, inState)
 		ViewModeIconButton(ViewMode.Split, inState)
