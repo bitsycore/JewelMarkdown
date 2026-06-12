@@ -1,5 +1,8 @@
 package com.bitsycore.jewelmarkdown
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ContextMenuArea
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,15 +18,22 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -32,17 +42,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
-import org.jetbrains.jewel.ui.component.Checkbox
 import org.jetbrains.jewel.ui.component.DefaultButton
 import org.jetbrains.jewel.ui.component.Divider
 import org.jetbrains.jewel.ui.component.GroupHeader
-import org.jetbrains.jewel.ui.component.OutlinedButton
+import org.jetbrains.jewel.ui.component.MenuScope
+import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.Slider
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.TextArea
 import org.jetbrains.jewel.ui.component.Tooltip
+import org.jetbrains.jewel.ui.component.separator
 
-// Window body below the title bar: a toolbar, the document tab strip, the editor/preview
+// Window body below the title bar: a menu bar, the document tab strip, the editor/preview
 // split and an optional status bar, over the configured ambient gradient, with the settings
 // overlay on top.
 @Composable
@@ -62,7 +73,7 @@ fun AppBody(inState: AppState) {
 				Divider(Orientation.Vertical, Modifier.fillMaxHeight(), color = vBorder)
 			}
 			Column(Modifier.weight(1f).fillMaxHeight()) {
-				Toolbar(inState)
+				MenuBar(inState)
 				Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
 				TabStrip(inState)
 				EditorAndPreview(inState, Modifier.weight(1f).fillMaxWidth())
@@ -78,41 +89,132 @@ fun AppBody(inState: AppState) {
 	}
 }
 
-// Document actions (New/Open/Save/Save As) on the left, view-mode switch on the right.
+// ==================
+// MARK: Menu bar
+// ==================
+
+// Compact File / Edit / View menu bar on the left, and a small-icon view-mode switch on the
+// right. Replaces the old button toolbar to save space and provide standard menus.
 @Composable
-private fun Toolbar(inState: AppState) {
+private fun MenuBar(inState: AppState) {
 	Row(
-		modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-		horizontalArrangement = Arrangement.spacedBy(8.dp),
+		modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 3.dp),
+		horizontalArrangement = Arrangement.spacedBy(2.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		OutlinedButton(onClick = { inState.newDocument() }) { Text("New") }
-		OutlinedButton(onClick = { onOpen(inState) }) { Text("Open") }
-		OutlinedButton(onClick = { chooseFolder()?.let { inState.projectRoot = it; inState.showProjectPanel = true } }) { Text("Open Folder") }
-		OutlinedButton(onClick = { onSave(inState) }) { Text("Save") }
-		OutlinedButton(onClick = { onSaveAs(inState) }) { Text("Save As") }
+		MenuButton("File") { vClose ->
+			menuItem("New") { vClose(); inState.newDocument() }
+			menuItem("Open File…") { vClose(); onOpen(inState) }
+			menuItem("Open Folder…") { vClose(); chooseFolder()?.let { inState.projectRoot = it; inState.showProjectPanel = true } }
+			separator()
+			menuItem("Save") { vClose(); onSave(inState) }
+			menuItem("Save As…") { vClose(); onSaveAs(inState) }
+			separator()
+			menuItem("Close Tab") { vClose(); inState.closeDocument(inState.activeIndex) }
+		}
+		MenuButton("Edit") { vClose ->
+			menuItem("Bold") { vClose(); editWrap(inState, "**", "**", "bold") }
+			menuItem("Italic") { vClose(); editWrap(inState, "_", "_", "italic") }
+			menuItem("Strikethrough") { vClose(); editWrap(inState, "~~", "~~", "strikethrough") }
+			menuItem("Inline code") { vClose(); editWrap(inState, "`", "`", "code") }
+			menuItem("Code block") { vClose(); editWrap(inState, "```\n", "\n```", "code") }
+			separator()
+			menuItem("Heading") { vClose(); editPrefix(inState, "# ") }
+			menuItem("Bullet list") { vClose(); editPrefix(inState, "- ") }
+			menuItem("Quote") { vClose(); editPrefix(inState, "> ") }
+			menuItem("Link") { vClose(); editWrap(inState, "[", "](https://)", "text") }
+		}
+		MenuButton("View") { vClose ->
+			menuItem("Editor", inState.viewMode == ViewMode.Editor) { vClose(); inState.viewMode = ViewMode.Editor }
+			menuItem("Split", inState.viewMode == ViewMode.Split) { vClose(); inState.viewMode = ViewMode.Split }
+			menuItem("Preview", inState.viewMode == ViewMode.Preview) { vClose(); inState.viewMode = ViewMode.Preview }
+			separator()
+			menuItem("Project Files", inState.showProjectPanel) { vClose(); inState.showProjectPanel = !inState.showProjectPanel }
+			menuItem("Status Bar", inState.settings.showStatusBar) { vClose(); inState.settings.showStatusBar = !inState.settings.showStatusBar }
+			separator()
+			menuItem("Settings…") { vClose(); inState.showSettings = true }
+		}
 		Spacer(Modifier.weight(1f))
-		ViewModeSwitch(inState)
+		ViewModeIcons(inState)
 	}
 }
 
-// Three-way switch between Editor, Split and Preview layouts.
+// A flat top-level menu button that opens a popup menu on click. The popup is icon-free,
+// avoiding the IntelliJ SVG icons that are not bundled in the standalone distribution.
 @Composable
-private fun ViewModeSwitch(inState: AppState) {
-	Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-		ModeButton("Editor", inState.viewMode == ViewMode.Editor) { inState.viewMode = ViewMode.Editor }
-		ModeButton("Split", inState.viewMode == ViewMode.Split) { inState.viewMode = ViewMode.Split }
-		ModeButton("Preview", inState.viewMode == ViewMode.Preview) { inState.viewMode = ViewMode.Preview }
+private fun MenuButton(inLabel: String, inContent: MenuScope.(close: () -> Unit) -> Unit) {
+	var vOpen by remember { mutableStateOf(false) }
+	Box {
+		Box(
+			modifier =
+				Modifier
+					.clip(RoundedCornerShape(6.dp))
+					.background(if (vOpen) JewelTheme.globalColors.text.info.copy(alpha = 0.15f) else Color.Transparent)
+					.clickable { vOpen = true }
+					.padding(horizontal = 10.dp, vertical = 5.dp),
+		) {
+			Text(inLabel, fontSize = 13.sp)
+		}
+		if (vOpen) {
+			PopupMenu(onDismissRequest = { vOpen = false; true }, horizontalAlignment = Alignment.Start) {
+				inContent { vOpen = false }
+			}
+		}
 	}
 }
 
-// A single view-mode button; the active mode is shown as a filled (default) button.
+// Adds a plain (icon-free) selectable menu item.
+private fun MenuScope.menuItem(inLabel: String, inSelected: Boolean = false, inOnClick: () -> Unit) {
+	selectableItem(selected = inSelected, onClick = inOnClick) { Text(inLabel) }
+}
+
+// Small-icon switch between Editor, Split and Preview layouts.
 @Composable
-private fun ModeButton(inLabel: String, inSelected: Boolean, inOnClick: () -> Unit) {
-	if (inSelected) {
-		DefaultButton(onClick = inOnClick) { Text(inLabel) }
-	} else {
-		OutlinedButton(onClick = inOnClick) { Text(inLabel) }
+private fun ViewModeIcons(inState: AppState) {
+	Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+		ViewModeIconButton(ViewMode.Editor, inState)
+		ViewModeIconButton(ViewMode.Split, inState)
+		ViewModeIconButton(ViewMode.Preview, inState)
+	}
+}
+
+// A highlight-on-select icon button for one view mode.
+@Composable
+private fun ViewModeIconButton(inMode: ViewMode, inState: AppState) {
+	val vSelected = inState.viewMode == inMode
+	val vTint = if (vSelected) JewelTheme.globalColors.text.normal else JewelTheme.globalColors.text.info
+	Tooltip(tooltip = { Text(inMode.name) }) {
+		Box(
+			modifier =
+				Modifier
+					.size(28.dp)
+					.clip(RoundedCornerShape(6.dp))
+					.background(if (vSelected) JewelTheme.globalColors.text.info.copy(alpha = 0.15f) else Color.Transparent)
+					.clickable { inState.viewMode = inMode },
+			contentAlignment = Alignment.Center,
+		) {
+			ViewModeGlyph(inMode, vTint, Modifier.size(16.dp))
+		}
+	}
+}
+
+// Draws a tiny glyph representing a view mode: one pane, split panes, or rendered lines.
+@Composable
+private fun ViewModeGlyph(inMode: ViewMode, inTint: Color, inModifier: Modifier) {
+	Canvas(inModifier) {
+		val vW = size.width
+		val vH = size.height
+		val vStroke = size.minDimension * 0.09f
+		drawRoundRect(color = inTint, cornerRadius = CornerRadius(size.minDimension * 0.14f), style = Stroke(width = vStroke))
+		when (inMode) {
+			ViewMode.Editor -> {} // single pane — just the outline
+			ViewMode.Split -> drawLine(inTint, Offset(vW / 2f, 0f), Offset(vW / 2f, vH), strokeWidth = vStroke)
+			ViewMode.Preview ->
+				for (vI in 1..3) {
+					val vY = vH * (0.25f + vI * 0.18f)
+					drawLine(inTint, Offset(vW * 0.25f, vY), Offset(vW * 0.75f, vY), strokeWidth = vStroke * 0.8f)
+				}
+		}
 	}
 }
 
@@ -134,34 +236,51 @@ private fun TabStrip(inState: AppState) {
 				inActive = vIndex == inState.activeIndex,
 				inOnSelect = { inState.activeIndex = vIndex },
 				inOnClose = { inState.closeDocument(vIndex) },
+				inOnCloseOthers = { inState.closeOthers(vIndex) },
+				inOnCloseAll = { inState.closeAll() },
 			)
 		}
 	}
 }
 
-// A single tab: title, dirty dot and a close affordance.
+// A single tab: title, dirty dot, a close affordance and a right-click context menu.
 @Composable
-private fun TabItem(inDoc: Document, inActive: Boolean, inOnSelect: () -> Unit, inOnClose: () -> Unit) {
-	val vShape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
-	Row(
-		modifier =
-			Modifier
-				.clip(vShape)
-				.background(if (inActive) JewelTheme.globalColors.panelBackground else Color.Transparent)
-				.clickable(onClick = inOnSelect)
-				.padding(start = 10.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.spacedBy(6.dp),
-	) {
-		Text(
-			(if (inDoc.isDirty) "● " else "") + inDoc.title,
-			fontSize = 13.sp,
-			color = if (inActive) JewelTheme.globalColors.text.normal else JewelTheme.globalColors.text.info,
+private fun TabItem(
+	inDoc: Document,
+	inActive: Boolean,
+	inOnSelect: () -> Unit,
+	inOnClose: () -> Unit,
+	inOnCloseOthers: () -> Unit,
+	inOnCloseAll: () -> Unit,
+) {
+	ContextMenuArea(items = {
+		listOf(
+			ContextMenuItem("Close", inOnClose),
+			ContextMenuItem("Close Others", inOnCloseOthers),
+			ContextMenuItem("Close All", inOnCloseAll),
 		)
-		Box(
-			modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = inOnClose).padding(horizontal = 4.dp),
+	}) {
+		val vShape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
+		Row(
+			modifier =
+				Modifier
+					.clip(vShape)
+					.background(if (inActive) JewelTheme.globalColors.panelBackground else Color.Transparent)
+					.clickable(onClick = inOnSelect)
+					.padding(start = 10.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(6.dp),
 		) {
-			Text("×", fontSize = 14.sp, color = JewelTheme.globalColors.text.info)
+			Text(
+				(if (inDoc.isDirty) "● " else "") + inDoc.title,
+				fontSize = 13.sp,
+				color = if (inActive) JewelTheme.globalColors.text.normal else JewelTheme.globalColors.text.info,
+			)
+			Box(
+				modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = inOnClose).padding(horizontal = 4.dp),
+			) {
+				Text("×", fontSize = 14.sp, color = JewelTheme.globalColors.text.info)
+			}
 		}
 	}
 }
@@ -274,24 +393,15 @@ private fun MarkdownToolbar(inState: AppState) {
 		horizontalArrangement = Arrangement.spacedBy(2.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		fun wrap(inPrefix: String, inSuffix: String, inPlaceholder: String) {
-			val vDoc = inState.active
-			vDoc.fieldValue = MarkdownActions.wrap(vDoc.fieldValue, inPrefix, inSuffix, inPlaceholder)
-		}
-		fun prefix(inPrefix: String) {
-			val vDoc = inState.active
-			vDoc.fieldValue = MarkdownActions.prefixLine(vDoc.fieldValue, inPrefix)
-		}
-
-		HelperButton("B", "Bold", "Wraps the selection in **double asterisks**.") { wrap("**", "**", "bold") }
-		HelperButton("I", "Italic", "Wraps the selection in _underscores_.") { wrap("_", "_", "italic") }
-		HelperButton("S", "Strikethrough", "Wraps the selection in ~~tildes~~.") { wrap("~~", "~~", "strikethrough") }
-		HelperButton("</>", "Inline code", "Wraps the selection in `backticks`.") { wrap("`", "`", "code") }
-		HelperButton("```", "Code block", "Wraps the selection in a fenced ``` code block.") { wrap("```\n", "\n```", "code") }
-		HelperButton("#", "Heading", "Prefixes the line with '# ' to make a heading.") { prefix("# ") }
-		HelperButton("•", "Bullet list", "Prefixes the line with '- ' to make a list item.") { prefix("- ") }
-		HelperButton(">", "Quote", "Prefixes the line with '> ' to make a block quote.") { prefix("> ") }
-		HelperButton("link", "Link", "Inserts a [text](url) link.") { wrap("[", "](https://)", "text") }
+		HelperButton("B", "Bold", "Wraps the selection in **double asterisks**.") { editWrap(inState, "**", "**", "bold") }
+		HelperButton("I", "Italic", "Wraps the selection in _underscores_.") { editWrap(inState, "_", "_", "italic") }
+		HelperButton("S", "Strikethrough", "Wraps the selection in ~~tildes~~.") { editWrap(inState, "~~", "~~", "strikethrough") }
+		HelperButton("</>", "Inline code", "Wraps the selection in `backticks`.") { editWrap(inState, "`", "`", "code") }
+		HelperButton("```", "Code block", "Wraps the selection in a fenced ``` code block.") { editWrap(inState, "```\n", "\n```", "code") }
+		HelperButton("#", "Heading", "Prefixes the line with '# ' to make a heading.") { editPrefix(inState, "# ") }
+		HelperButton("•", "Bullet list", "Prefixes the line with '- ' to make a list item.") { editPrefix(inState, "- ") }
+		HelperButton(">", "Quote", "Prefixes the line with '> ' to make a block quote.") { editPrefix(inState, "> ") }
+		HelperButton("link", "Link", "Inserts a [text](url) link.") { editWrap(inState, "[", "](https://)", "text") }
 	}
 }
 
@@ -364,7 +474,6 @@ private fun SettingsOverlay(inState: AppState) {
 					.clip(RoundedCornerShape(12.dp))
 					.background(JewelTheme.globalColors.panelBackground)
 					.border(1.dp, vBorder, RoundedCornerShape(12.dp))
-					// Swallow taps so clicks inside the card do not dismiss it.
 					.pointerInput(Unit) { detectTapGestures { } }
 					.padding(20.dp),
 			verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -393,8 +502,9 @@ private fun SettingsOverlay(inState: AppState) {
 
 			GroupHeader("View")
 			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-				Checkbox(checked = vSettings.showStatusBar, onCheckedChange = { vSettings.showStatusBar = it })
-				Text("Show status bar")
+				Text("Status bar", modifier = Modifier.width(120.dp))
+				Chip("On", vSettings.showStatusBar) { vSettings.showStatusBar = true }
+				Chip("Off", !vSettings.showStatusBar) { vSettings.showStatusBar = false }
 			}
 
 			Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -441,8 +551,20 @@ private fun SliderRow(
 }
 
 // ==================
-// MARK: File actions
+// MARK: Actions
 // ==================
+
+// Wraps the active document's selection with the given prefix/suffix.
+private fun editWrap(inState: AppState, inPrefix: String, inSuffix: String, inPlaceholder: String) {
+	val vDoc = inState.active
+	vDoc.fieldValue = MarkdownActions.wrap(vDoc.fieldValue, inPrefix, inSuffix, inPlaceholder)
+}
+
+// Prefixes the active document's current line with the given marker.
+private fun editPrefix(inState: AppState, inPrefix: String) {
+	val vDoc = inState.active
+	vDoc.fieldValue = MarkdownActions.prefixLine(vDoc.fieldValue, inPrefix)
+}
 
 // Opens a Markdown file into a new tab.
 private fun onOpen(inState: AppState) {

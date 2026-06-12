@@ -90,6 +90,29 @@ class AppState(inIsDark: Boolean) {
 		activeIndex = activeIndex.coerceIn(0, documents.lastIndex)
 	}
 
+	// Closes every tab except the one at inIndex.
+	fun closeOthers(inIndex: Int) {
+		val vKeep = documents.getOrNull(inIndex) ?: return
+		documents.clear()
+		documents.add(vKeep)
+		activeIndex = 0
+	}
+
+	// Closes all tabs, leaving a single empty scratch document.
+	fun closeAll() {
+		documents.clear()
+		documents.add(Document("", null))
+		activeIndex = 0
+	}
+
+	// Moves the tab at inFrom to inTo, used for drag-to-reorder.
+	fun moveDocument(inFrom: Int, inTo: Int) {
+		if (inFrom !in documents.indices || inTo !in documents.indices || inFrom == inTo) return
+		val vActive = active
+		documents.add(inTo, documents.removeAt(inFrom))
+		activeIndex = documents.indexOf(vActive).coerceAtLeast(0)
+	}
+
 	// Window/title-bar caption for the active document; a dot marks unsaved changes.
 	fun windowTitle(): String {
 		val vDoc = active
