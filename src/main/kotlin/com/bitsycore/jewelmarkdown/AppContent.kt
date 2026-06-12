@@ -2,6 +2,8 @@ package com.bitsycore.jewelmarkdown
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -12,62 +14,54 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
+import org.jetbrains.jewel.ui.component.Checkbox
 import org.jetbrains.jewel.ui.component.DefaultButton
 import org.jetbrains.jewel.ui.component.Divider
+import org.jetbrains.jewel.ui.component.GroupHeader
 import org.jetbrains.jewel.ui.component.OutlinedButton
+import org.jetbrains.jewel.ui.component.Slider
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.TextArea
 
-// Shared spacing/shape constants for the IntelliJ-like layout.
-private val kPaneCorner = 8.dp
-private val kContentGap = 12.dp
-
-// Subtle, dark Windows-11-Mica-style ambient gradient for the app background. Panes sit on
-// top as solid (lighter) cards, so the gradient only shows through the gutters/bars.
-private fun ambientBackground(inIsDark: Boolean): Brush =
-	if (inIsDark) {
-		Brush.linearGradient(
-			0.0f to Color(0xFF2A2C34),
-			0.45f to Color(0xFF202126),
-			1.0f to Color(0xFF24202B),
-		)
-	} else {
-		Brush.linearGradient(
-			0.0f to Color(0xFFEDF1F8),
-			0.45f to Color(0xFFF5F6F9),
-			1.0f to Color(0xFFF0ECF7),
-		)
-	}
-
-// Window body below the title bar: a toolbar, the editor/preview split, and a status bar,
-// all on the tool-window background. Each pane is a separated, bordered card.
+// Window body below the title bar: a toolbar, the editor/preview split and an optional status
+// bar, over the configured ambient gradient, with the settings overlay on top.
 @Composable
 fun AppBody(inState: AppState) {
+	val vSettings = inState.settings
 	val vBorder = JewelTheme.globalColors.borders.normal
-	Column(
+	Box(
 		Modifier
 			.fillMaxSize()
-			.background(ambientBackground(JewelTheme.isDark))
+			.background(vSettings.gradient.brush(JewelTheme.isDark))
 	) {
-		Toolbar(inState)
-		Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
-		EditorAndPreview(inState, Modifier.weight(1f).fillMaxWidth())
-		Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
-		StatusBar(inState)
+		Column(Modifier.fillMaxSize()) {
+			Toolbar(inState)
+			Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
+			EditorAndPreview(inState, Modifier.weight(1f).fillMaxWidth())
+			if (vSettings.showStatusBar) {
+				Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
+				StatusBar(inState)
+			}
+		}
+		if (inState.showSettings) {
+			SettingsOverlay(inState)
+		}
 	}
 }
 
@@ -108,21 +102,23 @@ private fun ModeButton(inLabel: String, inSelected: Boolean, inOnClick: () -> Un
 	}
 }
 
-// Editor and preview as separated cards, honoring the current view mode. Panes are spaced
-// apart (not just a hairline divider) so the two regions read as distinct surfaces.
+// Editor and preview as separated cards, honoring the current view mode and the configured
+// spacing/corner settings.
 @Composable
 private fun EditorAndPreview(inState: AppState, inModifier: Modifier) {
+	val vGap = inState.settings.contentGapDp.dp
+	val vCorner = inState.settings.paneCornerDp.dp
 	Row(
-		modifier = inModifier.padding(kContentGap),
-		horizontalArrangement = Arrangement.spacedBy(kContentGap),
+		modifier = inModifier.padding(vGap),
+		horizontalArrangement = Arrangement.spacedBy(vGap),
 	) {
 		if (inState.viewMode != ViewMode.Preview) {
-			Pane("Editor", Modifier.weight(1f).fillMaxHeight()) {
+			Pane("Editor", Modifier.weight(1f).fillMaxHeight(), vCorner) {
 				EditorPane(inState, Modifier.fillMaxSize())
 			}
 		}
 		if (inState.viewMode != ViewMode.Editor) {
-			Pane("Preview", Modifier.weight(1f).fillMaxHeight()) {
+			Pane("Preview", Modifier.weight(1f).fillMaxHeight(), vCorner) {
 				MarkdownPreview(
 					inText = inState.text,
 					inIsDark = inState.isDark,
@@ -137,9 +133,9 @@ private fun EditorAndPreview(inState: AppState, inModifier: Modifier) {
 
 // A bordered, rounded panel with a small header label — the IntelliJ tool-window look.
 @Composable
-private fun Pane(inTitle: String, inModifier: Modifier, inContent: @Composable BoxScope.() -> Unit) {
+private fun Pane(inTitle: String, inModifier: Modifier, inCornerDp: Dp, inContent: @Composable BoxScope.() -> Unit) {
 	val vBorder = JewelTheme.globalColors.borders.normal
-	val vShape = RoundedCornerShape(kPaneCorner)
+	val vShape = RoundedCornerShape(inCornerDp)
 	Column(
 		inModifier
 			.clip(vShape)
@@ -173,7 +169,11 @@ private fun PaneHeader(inTitle: String) {
 // blends into its pane card rather than drawing a second border.
 @Composable
 private fun EditorPane(inState: AppState, inModifier: Modifier) {
-	val vEditorStyle = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace)
+	val vEditorStyle =
+		JewelTheme.defaultTextStyle.copy(
+			fontFamily = FontFamily.Monospace,
+			fontSize = inState.settings.editorFontSizeSp.sp,
+		)
 	val vTransformation = remember(inState.isDark) { MarkdownSyntaxTransformation(inState.isDark) }
 	TextArea(
 		value = inState.fieldValue,
@@ -204,6 +204,108 @@ private fun StatusBar(inState: AppState) {
 		Text("$vLineCount lines", color = vMuted, fontSize = 12.sp)
 		Text("$vWordCount words", color = vMuted, fontSize = 12.sp)
 		Text("${vText.length} chars", color = vMuted, fontSize = 12.sp)
+	}
+}
+
+// ==================
+// MARK: Settings overlay
+// ==================
+
+// Modal settings overlay: a dimmed scrim (click to dismiss) with a centered card of controls
+// that edit the live Settings model.
+@Composable
+private fun SettingsOverlay(inState: AppState) {
+	val vSettings = inState.settings
+	val vBorder = JewelTheme.globalColors.borders.normal
+	val vMuted = JewelTheme.globalColors.text.info
+	Box(
+		modifier =
+			Modifier
+				.fillMaxSize()
+				.background(Color.Black.copy(alpha = 0.45f))
+				.pointerInput(Unit) { detectTapGestures { inState.showSettings = false } },
+		contentAlignment = Alignment.Center,
+	) {
+		Column(
+			modifier =
+				Modifier
+					.width(440.dp)
+					.clip(RoundedCornerShape(12.dp))
+					.background(JewelTheme.globalColors.panelBackground)
+					.border(1.dp, vBorder, RoundedCornerShape(12.dp))
+					// Swallow taps so clicks inside the card do not dismiss it.
+					.pointerInput(Unit) { detectTapGestures { } }
+					.padding(20.dp),
+			verticalArrangement = Arrangement.spacedBy(12.dp),
+		) {
+			Text("Settings", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+			GroupHeader("Appearance")
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+				Text("Theme", modifier = Modifier.width(120.dp))
+				Chip("Dark", inState.isDark) { inState.isDark = true }
+				Chip("Light", !inState.isDark) { inState.isDark = false }
+			}
+			Text("Background gradient", color = vMuted, fontSize = 12.sp)
+			Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+				for (vPreset in GradientPreset.entries) {
+					Chip(vPreset.displayName, vSettings.gradient == vPreset) { vSettings.gradient = vPreset }
+				}
+			}
+
+			GroupHeader("Layout")
+			SliderRow("Panel corners", vSettings.paneCornerDp, 0f..20f) { vSettings.paneCornerDp = it }
+			SliderRow("Panel spacing", vSettings.contentGapDp, 0f..28f) { vSettings.contentGapDp = it }
+
+			GroupHeader("Editor")
+			SliderRow("Font size", vSettings.editorFontSizeSp, 10f..24f) { vSettings.editorFontSizeSp = it }
+
+			GroupHeader("View")
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+				Checkbox(checked = vSettings.showStatusBar, onCheckedChange = { vSettings.showStatusBar = it })
+				Text("Show status bar")
+			}
+
+			Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+				DefaultButton(onClick = { inState.showSettings = false }) { Text("Done") }
+			}
+		}
+	}
+}
+
+// A compact selectable chip used for theme/preset choices.
+@Composable
+private fun Chip(inLabel: String, inSelected: Boolean, inOnClick: () -> Unit) {
+	val vBorder = JewelTheme.globalColors.borders.normal
+	val vAccent = JewelTheme.globalColors.text.info
+	val vShape = RoundedCornerShape(6.dp)
+	Box(
+		modifier =
+			Modifier
+				.clip(vShape)
+				.background(if (inSelected) vAccent.copy(alpha = 0.18f) else Color.Transparent)
+				.border(1.dp, if (inSelected) vAccent else vBorder, vShape)
+				.clickable(onClick = inOnClick)
+				.padding(horizontal = 10.dp, vertical = 5.dp),
+	) {
+		Text(inLabel, fontSize = 12.sp)
+	}
+}
+
+// A labeled slider row showing the current integer value.
+@Composable
+private fun SliderRow(
+	inLabel: String,
+	inValue: Float,
+	inRange: ClosedFloatingPointRange<Float>,
+	inOnChange: (Float) -> Unit,
+) {
+	Column(Modifier.fillMaxWidth()) {
+		Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+			Text(inLabel)
+			Text(inValue.toInt().toString(), color = JewelTheme.globalColors.text.info)
+		}
+		Slider(value = inValue, onValueChange = inOnChange, modifier = Modifier.fillMaxWidth(), valueRange = inRange)
 	}
 }
 

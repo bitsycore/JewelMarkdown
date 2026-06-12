@@ -36,6 +36,12 @@ class AppState(inInitialText: String, inIsDark: Boolean) {
 	// links open only on Ctrl+Click.
 	var isCtrlDown by mutableStateOf(false)
 
+	// User-configurable UI settings (gradient, sizes, status bar).
+	val settings = Settings()
+
+	// Whether the settings overlay is currently visible.
+	var showSettings by mutableStateOf(false)
+
 	// Text as last opened/saved; compared against the buffer to detect edits.
 	var savedText by mutableStateOf(inInitialText)
 		private set

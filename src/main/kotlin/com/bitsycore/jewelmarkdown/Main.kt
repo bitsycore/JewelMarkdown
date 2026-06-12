@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,8 +63,8 @@ fun main() = application {
 // and a dark/light theme toggle on the right.
 @Composable
 private fun DecoratedWindowScope.AppTitleBar(inState: AppState) {
-	// Subtle ambient accent tinting the title bar (matches the app's dark gradient).
-	val vTitleAccent = if (inState.isDark) Color(0xFF34304A) else Color(0xFFDDE3F2)
+	// Subtle ambient accent tinting the title bar (matches the configured app gradient).
+	val vTitleAccent = inState.settings.gradient.titleAccent(inState.isDark)
 	TitleBar(modifier = Modifier.newFullscreenControls(), gradientStartColor = vTitleAccent) {
 		Text(
 			"Jewel Markdown",
@@ -80,6 +79,7 @@ private fun DecoratedWindowScope.AppTitleBar(inState: AppState) {
 			horizontalArrangement = Arrangement.spacedBy(8.dp),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
+			OutlinedButton(onClick = { inState.showSettings = true }) { Text("Settings") }
 			OutlinedButton(onClick = { inState.isDark = !inState.isDark }) {
 				Text(if (inState.isDark) "Light mode" else "Dark mode")
 			}
