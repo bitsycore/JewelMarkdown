@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -40,8 +42,9 @@ import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.TextArea
 import org.jetbrains.jewel.ui.component.Tooltip
 
-// Window body below the title bar: a toolbar, the editor/preview split and an optional status
-// bar, over the configured ambient gradient, with the settings overlay on top.
+// Window body below the title bar: a toolbar, the document tab strip, the editor/preview
+// split and an optional status bar, over the configured ambient gradient, with the settings
+// overlay on top.
 @Composable
 fun AppBody(inState: AppState) {
 	val vSettings = inState.settings
@@ -54,6 +57,7 @@ fun AppBody(inState: AppState) {
 		Column(Modifier.fillMaxSize()) {
 			Toolbar(inState)
 			Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
+			TabStrip(inState)
 			EditorAndPreview(inState, Modifier.weight(1f).fillMaxWidth())
 			if (vSettings.showStatusBar) {
 				Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
@@ -74,7 +78,7 @@ private fun Toolbar(inState: AppState) {
 		horizontalArrangement = Arrangement.spacedBy(8.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		OutlinedButton(onClick = { inState.loadText("", null) }) { Text("New") }
+		OutlinedButton(onClick = { inState.newDocument() }) { Text("New") }
 		OutlinedButton(onClick = { onOpen(inState) }) { Text("Open") }
 		OutlinedButton(onClick = { onSave(inState) }) { Text("Save") }
 		OutlinedButton(onClick = { onSaveAs(inState) }) { Text("Save As") }
@@ -103,6 +107,60 @@ private fun ModeButton(inLabel: String, inSelected: Boolean, inOnClick: () -> Un
 	}
 }
 
+// ==================
+// MARK: Tabs
+// ==================
+
+// Horizontal strip of open-document tabs, IntelliJ-style.
+@Composable
+private fun TabStrip(inState: AppState) {
+	Row(
+		modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
+		horizontalArrangement = Arrangement.spacedBy(4.dp),
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		inState.documents.forEachIndexed { vIndex, vDoc ->
+			TabItem(
+				inDoc = vDoc,
+				inActive = vIndex == inState.activeIndex,
+				inOnSelect = { inState.activeIndex = vIndex },
+				inOnClose = { inState.closeDocument(vIndex) },
+			)
+		}
+	}
+}
+
+// A single tab: title, dirty dot and a close affordance.
+@Composable
+private fun TabItem(inDoc: Document, inActive: Boolean, inOnSelect: () -> Unit, inOnClose: () -> Unit) {
+	val vShape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
+	Row(
+		modifier =
+			Modifier
+				.clip(vShape)
+				.background(if (inActive) JewelTheme.globalColors.panelBackground else Color.Transparent)
+				.clickable(onClick = inOnSelect)
+				.padding(start = 10.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+		verticalAlignment = Alignment.CenterVertically,
+		horizontalArrangement = Arrangement.spacedBy(6.dp),
+	) {
+		Text(
+			(if (inDoc.isDirty) "● " else "") + inDoc.title,
+			fontSize = 13.sp,
+			color = if (inActive) JewelTheme.globalColors.text.normal else JewelTheme.globalColors.text.info,
+		)
+		Box(
+			modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = inOnClose).padding(horizontal = 4.dp),
+		) {
+			Text("×", fontSize = 14.sp, color = JewelTheme.globalColors.text.info)
+		}
+	}
+}
+
+// ==================
+// MARK: Editor / preview split
+// ==================
+
 // Editor and preview as separated cards, honoring the current view mode and the configured
 // spacing/corner settings.
 @Composable
@@ -121,7 +179,7 @@ private fun EditorAndPreview(inState: AppState, inModifier: Modifier) {
 		if (inState.viewMode != ViewMode.Editor) {
 			Pane("Preview", Modifier.weight(1f).fillMaxHeight(), vCorner) {
 				MarkdownPreview(
-					inText = inState.text,
+					inText = inState.active.text,
 					inIsDark = inState.isDark,
 					inModifier = Modifier.fillMaxSize(),
 					// IntelliJ-style: links open only on Ctrl+Click; plain clicks select text.
@@ -180,6 +238,7 @@ private fun EditorPane(inState: AppState, inModifier: Modifier) {
 // blends into its pane card rather than drawing a second border.
 @Composable
 private fun EditorTextArea(inState: AppState, inModifier: Modifier) {
+	val vDoc = inState.active
 	val vEditorStyle =
 		JewelTheme.defaultTextStyle.copy(
 			fontFamily = FontFamily.Monospace,
@@ -187,8 +246,8 @@ private fun EditorTextArea(inState: AppState, inModifier: Modifier) {
 		)
 	val vTransformation = remember(inState.isDark) { MarkdownSyntaxTransformation(inState.isDark) }
 	TextArea(
-		value = inState.fieldValue,
-		onValueChange = { inState.fieldValue = it },
+		value = vDoc.fieldValue,
+		onValueChange = { vDoc.fieldValue = it },
 		modifier = inModifier.padding(10.dp),
 		textStyle = vEditorStyle,
 		visualTransformation = vTransformation,
@@ -197,8 +256,8 @@ private fun EditorTextArea(inState: AppState, inModifier: Modifier) {
 	)
 }
 
-// Writerside-style Markdown helpers. Each button applies a formatting action to the editor
-// selection and shows a tooltip describing the Markdown syntax it inserts.
+// Writerside-style Markdown helpers. Each button applies a formatting action to the active
+// document's selection and shows a tooltip describing the Markdown syntax it inserts.
 @Composable
 private fun MarkdownToolbar(inState: AppState) {
 	Row(
@@ -207,10 +266,12 @@ private fun MarkdownToolbar(inState: AppState) {
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		fun wrap(inPrefix: String, inSuffix: String, inPlaceholder: String) {
-			inState.fieldValue = MarkdownActions.wrap(inState.fieldValue, inPrefix, inSuffix, inPlaceholder)
+			val vDoc = inState.active
+			vDoc.fieldValue = MarkdownActions.wrap(vDoc.fieldValue, inPrefix, inSuffix, inPlaceholder)
 		}
 		fun prefix(inPrefix: String) {
-			inState.fieldValue = MarkdownActions.prefixLine(inState.fieldValue, inPrefix)
+			val vDoc = inState.active
+			vDoc.fieldValue = MarkdownActions.prefixLine(vDoc.fieldValue, inPrefix)
 		}
 
 		HelperButton("B", "Bold", "Wraps the selection in **double asterisks**.") { wrap("**", "**", "bold") }
@@ -249,7 +310,8 @@ private fun HelperButton(inLabel: String, inName: String, inHelp: String, inOnCl
 // Bottom status bar: file path, dirty state and document metrics, in muted text.
 @Composable
 private fun StatusBar(inState: AppState) {
-	val vText = inState.text
+	val vDoc = inState.active
+	val vText = vDoc.text
 	val vLineCount = if (vText.isEmpty()) 0 else vText.count { it == '\n' } + 1
 	val vWordCount = if (vText.isBlank()) 0 else vText.trim().split(Regex("\\s+")).size
 	val vMuted = JewelTheme.globalColors.text.info
@@ -258,9 +320,9 @@ private fun StatusBar(inState: AppState) {
 		horizontalArrangement = Arrangement.spacedBy(16.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Text(inState.currentFile?.absolutePath ?: "Unsaved document", color = vMuted, fontSize = 12.sp)
+		Text(vDoc.file?.absolutePath ?: "Unsaved document", color = vMuted, fontSize = 12.sp)
 		Spacer(Modifier.weight(1f))
-		Text(if (inState.isDirty) "Modified" else "Saved", color = vMuted, fontSize = 12.sp)
+		Text(if (vDoc.isDirty) "Modified" else "Saved", color = vMuted, fontSize = 12.sp)
 		Text("$vLineCount lines", color = vMuted, fontSize = 12.sp)
 		Text("$vWordCount words", color = vMuted, fontSize = 12.sp)
 		Text("${vText.length} chars", color = vMuted, fontSize = 12.sp)
@@ -373,25 +435,26 @@ private fun SliderRow(
 // MARK: File actions
 // ==================
 
-// Opens a Markdown file into the editor; ignores read failures.
+// Opens a Markdown file into a new tab.
 private fun onOpen(inState: AppState) {
 	val vFile = chooseOpenFile() ?: return
-	runCatching { vFile.readText() }.onSuccess { inState.loadText(it, vFile) }
+	inState.openFile(vFile)
 }
 
-// Saves to the current file, falling back to "Save As" when there is none.
+// Saves the active document to its file, falling back to "Save As" when there is none.
 private fun onSave(inState: AppState) {
-	val vFile = inState.currentFile
+	val vDoc = inState.active
+	val vFile = vDoc.file
 	if (vFile == null) {
 		onSaveAs(inState)
 		return
 	}
-	runCatching { vFile.writeText(inState.text) }.onSuccess { inState.markSaved(vFile) }
+	runCatching { vFile.writeText(vDoc.text) }.onSuccess { vDoc.markSaved(vFile) }
 }
 
-// Prompts for a destination and writes the document there.
+// Prompts for a destination and writes the active document there.
 private fun onSaveAs(inState: AppState) {
-	val vSuggested = inState.currentFile?.name ?: "untitled.md"
-	val vFile = chooseSaveFile(vSuggested) ?: return
-	runCatching { vFile.writeText(inState.text) }.onSuccess { inState.markSaved(vFile) }
+	val vDoc = inState.active
+	val vFile = chooseSaveFile(vDoc.file?.name ?: "untitled.md") ?: return
+	runCatching { vFile.writeText(vDoc.text) }.onSuccess { vDoc.markSaved(vFile) }
 }

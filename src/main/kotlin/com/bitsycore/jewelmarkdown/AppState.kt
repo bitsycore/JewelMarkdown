@@ -3,6 +3,7 @@ package com.bitsycore.jewelmarkdown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -13,66 +14,93 @@ import java.io.File
 // The three layout modes offered by the toolbar's view switch.
 enum class ViewMode { Editor, Split, Preview }
 
-// Holds the mutable UI state of the editor window: the document buffer (text + caret),
-// its backing file, the active theme and the chosen layout. Reading these inside
-// composition drives recomposition (live preview, dirty indicator, theme switch).
-// A TextFieldValue (not TextFieldState) is used so the editor can apply a
-// syntax-highlighting VisualTransformation.
+// A single open document: its editor buffer (text + caret), backing file and saved baseline.
 @Stable
-class AppState(inInitialText: String, inIsDark: Boolean) {
+class Document(inText: String, inFile: File?) {
 	// Editor buffer with selection/caret; bound to the editor's TextArea.
-	var fieldValue by mutableStateOf(TextFieldValue(inInitialText, TextRange(inInitialText.length)))
+	var fieldValue by mutableStateOf(TextFieldValue(inText, TextRange(inText.length)))
 
-	// Backing file of the current document, or null for an unsaved buffer.
-	var currentFile by mutableStateOf<File?>(null)
-
-	// Dark theme is the default; toggled from the title bar.
-	var isDark by mutableStateOf(inIsDark)
-
-	// Editor-only, side-by-side or preview-only layout.
-	var viewMode by mutableStateOf(ViewMode.Split)
-
-	// Whether Ctrl is currently held (tracked from the window key handler); used so preview
-	// links open only on Ctrl+Click.
-	var isCtrlDown by mutableStateOf(false)
-
-	// User-configurable UI settings (gradient, sizes, status bar).
-	val settings = Settings()
-
-	// Whether the settings overlay is currently visible.
-	var showSettings by mutableStateOf(false)
-
-	// Text as last opened/saved; compared against the buffer to detect edits.
-	var savedText by mutableStateOf(inInitialText)
+	// Backing file of the document, or null for an unsaved scratch buffer.
+	var file by mutableStateOf(inFile)
 		private set
 
-	// Current buffer contents as a plain String.
+	// Text as last opened/saved; compared against the buffer to detect edits.
+	var savedText by mutableStateOf(inText)
+		private set
+
 	val text: String get() = fieldValue.text
-
-	// True when the buffer differs from the last opened/saved content.
 	val isDirty: Boolean get() = text != savedText
+	val title: String get() = file?.name ?: "Untitled"
 
-	// Replaces the whole buffer (New/Open), places the caret at the end and resets baseline.
-	fun loadText(inNewText: String, inFile: File?) {
-		fieldValue = TextFieldValue(inNewText, TextRange(inNewText.length))
-		currentFile = inFile
-		savedText = inNewText
-	}
-
-	// Records the current text as the saved baseline after a successful write.
+	// Records the current text as saved and binds the document to a file.
 	fun markSaved(inFile: File) {
-		currentFile = inFile
+		file = inFile
 		savedText = text
-	}
-
-	// Window/title-bar caption: a dot marks unsaved changes.
-	fun windowTitle(): String {
-		val vName = currentFile?.name ?: "Untitled"
-		val vDirtyMark = if (isDirty) "● " else ""
-		return "$vDirtyMark$vName  —  Jewel Markdown"
 	}
 }
 
-// Creates and remembers an AppState seeded with the sample document, dark theme on.
+// Top-level UI state: the set of open documents, the active one, theme, layout, settings and
+// the project (folder) panel state.
+@Stable
+class AppState(inIsDark: Boolean) {
+	// Open documents shown as tabs; kept non-empty.
+	val documents = mutableStateListOf<Document>()
+	var activeIndex by mutableStateOf(0)
+
+	var isDark by mutableStateOf(inIsDark)
+	var viewMode by mutableStateOf(ViewMode.Split)
+
+	// Ctrl held (tracked from the window key handler); preview links open only on Ctrl+Click.
+	var isCtrlDown by mutableStateOf(false)
+
+	// User-configurable UI settings.
+	val settings = Settings()
+	var showSettings by mutableStateOf(false)
+
+	// Project (folder) panel.
+	var projectRoot by mutableStateOf<File?>(null)
+	var showProjectPanel by mutableStateOf(false)
+
+	// The currently focused document (documents is never empty, so this is non-null).
+	val active: Document get() = documents[activeIndex.coerceIn(0, documents.lastIndex)]
+
+	// Opens a new empty scratch document and focuses it.
+	fun newDocument() {
+		documents.add(Document("", null))
+		activeIndex = documents.lastIndex
+	}
+
+	// Opens a file in a tab, focusing an existing tab if the file is already open.
+	fun openFile(inFile: File) {
+		val vExisting = documents.indexOfFirst { it.file?.absolutePath == inFile.absolutePath }
+		if (vExisting >= 0) {
+			activeIndex = vExisting
+			return
+		}
+		val vContent = runCatching { inFile.readText() }.getOrNull() ?: return
+		documents.add(Document(vContent, inFile))
+		activeIndex = documents.lastIndex
+	}
+
+	// Closes a tab, keeping at least one document open.
+	fun closeDocument(inIndex: Int) {
+		if (inIndex !in documents.indices) return
+		documents.removeAt(inIndex)
+		if (documents.isEmpty()) documents.add(Document(kSampleMarkdown, null))
+		activeIndex = activeIndex.coerceIn(0, documents.lastIndex)
+	}
+
+	// Window/title-bar caption for the active document; a dot marks unsaved changes.
+	fun windowTitle(): String {
+		val vDoc = active
+		val vDirtyMark = if (vDoc.isDirty) "● " else ""
+		return "$vDirtyMark${vDoc.title}  —  Jewel Markdown"
+	}
+}
+
+// Creates and remembers the app state seeded with one sample document, dark theme on.
 @Composable
-fun rememberAppState(): AppState = remember { AppState(kSampleMarkdown, inIsDark = true) }
+fun rememberAppState(): AppState =
+	remember {
+		AppState(inIsDark = true).apply { documents.add(Document(kSampleMarkdown, null)) }
+	}
