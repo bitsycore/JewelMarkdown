@@ -38,6 +38,7 @@ import org.jetbrains.jewel.ui.component.OutlinedButton
 import org.jetbrains.jewel.ui.component.Slider
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.TextArea
+import org.jetbrains.jewel.ui.component.Tooltip
 
 // Window body below the title bar: a toolbar, the editor/preview split and an optional status
 // bar, over the configured ambient gradient, with the settings overlay on top.
@@ -165,10 +166,20 @@ private fun PaneHeader(inTitle: String) {
 	}
 }
 
+// Editor pane: a Markdown formatting toolbar above the raw text area.
+@Composable
+private fun EditorPane(inState: AppState, inModifier: Modifier) {
+	Column(inModifier) {
+		MarkdownToolbar(inState)
+		Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = JewelTheme.globalColors.borders.normal)
+		EditorTextArea(inState, Modifier.weight(1f).fillMaxWidth())
+	}
+}
+
 // Raw Markdown editor, monospace, with live Markdown syntax highlighting. Undecorated so it
 // blends into its pane card rather than drawing a second border.
 @Composable
-private fun EditorPane(inState: AppState, inModifier: Modifier) {
+private fun EditorTextArea(inState: AppState, inModifier: Modifier) {
 	val vEditorStyle =
 		JewelTheme.defaultTextStyle.copy(
 			fontFamily = FontFamily.Monospace,
@@ -184,6 +195,55 @@ private fun EditorPane(inState: AppState, inModifier: Modifier) {
 		undecorated = true,
 		placeholder = { Text("Write some Markdown…") },
 	)
+}
+
+// Writerside-style Markdown helpers. Each button applies a formatting action to the editor
+// selection and shows a tooltip describing the Markdown syntax it inserts.
+@Composable
+private fun MarkdownToolbar(inState: AppState) {
+	Row(
+		modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+		horizontalArrangement = Arrangement.spacedBy(2.dp),
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		fun wrap(inPrefix: String, inSuffix: String, inPlaceholder: String) {
+			inState.fieldValue = MarkdownActions.wrap(inState.fieldValue, inPrefix, inSuffix, inPlaceholder)
+		}
+		fun prefix(inPrefix: String) {
+			inState.fieldValue = MarkdownActions.prefixLine(inState.fieldValue, inPrefix)
+		}
+
+		HelperButton("B", "Bold", "Wraps the selection in **double asterisks**.") { wrap("**", "**", "bold") }
+		HelperButton("I", "Italic", "Wraps the selection in _underscores_.") { wrap("_", "_", "italic") }
+		HelperButton("S", "Strikethrough", "Wraps the selection in ~~tildes~~.") { wrap("~~", "~~", "strikethrough") }
+		HelperButton("</>", "Inline code", "Wraps the selection in `backticks`.") { wrap("`", "`", "code") }
+		HelperButton("```", "Code block", "Wraps the selection in a fenced ``` code block.") { wrap("```\n", "\n```", "code") }
+		HelperButton("#", "Heading", "Prefixes the line with '# ' to make a heading.") { prefix("# ") }
+		HelperButton("•", "Bullet list", "Prefixes the line with '- ' to make a list item.") { prefix("- ") }
+		HelperButton(">", "Quote", "Prefixes the line with '> ' to make a block quote.") { prefix("> ") }
+		HelperButton("link", "Link", "Inserts a [text](url) link.") { wrap("[", "](https://)", "text") }
+	}
+}
+
+// A compact, tooltip-backed formatting button.
+@Composable
+private fun HelperButton(inLabel: String, inName: String, inHelp: String, inOnClick: () -> Unit) {
+	Tooltip(tooltip = {
+		Column {
+			Text(inName, fontWeight = FontWeight.SemiBold)
+			Text(inHelp, color = JewelTheme.globalColors.text.info, fontSize = 12.sp)
+		}
+	}) {
+		Box(
+			modifier =
+				Modifier
+					.clip(RoundedCornerShape(6.dp))
+					.clickable(onClick = inOnClick)
+					.padding(horizontal = 8.dp, vertical = 4.dp),
+		) {
+			Text(inLabel, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+		}
+	}
 }
 
 // Bottom status bar: file path, dirty state and document metrics, in muted text.
