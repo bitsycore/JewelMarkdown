@@ -42,6 +42,7 @@ import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -131,36 +132,36 @@ internal fun AppMenus(inState: AppState, inModifier: Modifier = Modifier) {
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		MenuButton("File", vOpenMenu, { vOpenMenu = it }) { vClose ->
-			menuItem("New") { vClose(); inState.newDocument() }
-			menuItem("Open File…") { vClose(); onOpen(inState) }
-			menuItem("Open Folder…") { vClose(); chooseFolder()?.let { inState.projectRoot = it; inState.showProjectPanel = true } }
+			actionItem(inState, ShortcutAction.NewFile, vClose)
+			actionItem(inState, ShortcutAction.OpenFile, vClose)
+			actionItem(inState, ShortcutAction.OpenFolder, vClose)
 			separator()
-			menuItem("Save") { vClose(); onSave(inState) }
-			menuItem("Save As…") { vClose(); onSaveAs(inState) }
+			actionItem(inState, ShortcutAction.Save, vClose)
+			actionItem(inState, ShortcutAction.SaveAs, vClose)
 			separator()
-			menuItem("Close Tab") { vClose(); inState.closeDocument(inState.activeIndex) }
+			actionItem(inState, ShortcutAction.CloseTab, vClose)
 		}
 		MenuButton("Edit", vOpenMenu, { vOpenMenu = it }) { vClose ->
-			menuItem("Bold") { vClose(); editWrap(inState, "**", "**", "bold") }
-			menuItem("Italic") { vClose(); editWrap(inState, "_", "_", "italic") }
+			actionItem(inState, ShortcutAction.Bold, vClose)
+			actionItem(inState, ShortcutAction.Italic, vClose)
 			menuItem("Strikethrough") { vClose(); editWrap(inState, "~~", "~~", "strikethrough") }
-			menuItem("Inline code") { vClose(); editWrap(inState, "`", "`", "code") }
+			actionItem(inState, ShortcutAction.InlineCode, vClose)
 			menuItem("Code block") { vClose(); editWrap(inState, "```\n", "\n```", "code") }
 			separator()
-			menuItem("Heading") { vClose(); editPrefix(inState, "# ") }
-			menuItem("Bullet list") { vClose(); editPrefix(inState, "- ") }
-			menuItem("Quote") { vClose(); editPrefix(inState, "> ") }
-			menuItem("Link") { vClose(); editWrap(inState, "[", "](https://)", "text") }
+			actionItem(inState, ShortcutAction.Heading, vClose)
+			actionItem(inState, ShortcutAction.BulletList, vClose)
+			actionItem(inState, ShortcutAction.Quote, vClose)
+			actionItem(inState, ShortcutAction.Link, vClose)
 		}
 		MenuButton("View", vOpenMenu, { vOpenMenu = it }) { vClose ->
-			menuItem("Editor", inState.viewMode == ViewMode.Editor) { vClose(); inState.viewMode = ViewMode.Editor }
-			menuItem("Split", inState.viewMode == ViewMode.Split) { vClose(); inState.viewMode = ViewMode.Split }
-			menuItem("Preview", inState.viewMode == ViewMode.Preview) { vClose(); inState.viewMode = ViewMode.Preview }
+			actionItem(inState, ShortcutAction.ViewEditor, vClose, inState.viewMode == ViewMode.Editor)
+			actionItem(inState, ShortcutAction.ViewSplit, vClose, inState.viewMode == ViewMode.Split)
+			actionItem(inState, ShortcutAction.ViewPreview, vClose, inState.viewMode == ViewMode.Preview)
 			separator()
-			menuItem("Project Files", inState.showProjectPanel) { vClose(); inState.showProjectPanel = !inState.showProjectPanel }
+			actionItem(inState, ShortcutAction.ToggleProjectPanel, vClose, inState.showProjectPanel)
 			menuItem("Status Bar", inState.settings.showStatusBar) { vClose(); inState.settings.showStatusBar = !inState.settings.showStatusBar }
 			separator()
-			menuItem("Settings…") { vClose(); inState.showSettings = true }
+			actionItem(inState, ShortcutAction.OpenSettings, vClose)
 		}
 	}
 }
@@ -220,6 +221,21 @@ private fun MenuButton(
 // Adds a plain (icon-free) selectable menu item.
 private fun MenuScope.menuItem(inLabel: String, inSelected: Boolean = false, inOnClick: () -> Unit) {
 	selectableItem(selected = inSelected, onClick = inOnClick) { Text(inLabel) }
+}
+
+// Adds a menu item bound to a shortcut action: shows the key hint, closes the menu and runs it.
+private fun MenuScope.actionItem(inState: AppState, inAction: ShortcutAction, inClose: () -> Unit, inSelected: Boolean = false) {
+	val vBinding = inState.keymap[inAction]?.let { setOf(it.label()) }
+	selectableItem(
+		selected = inSelected,
+		keybinding = vBinding,
+		onClick = {
+			inClose()
+			runShortcutAction(inState, inAction)
+		},
+	) {
+		Text(inAction.displayName)
+	}
 }
 
 // Small-icon switch between Editor, Split and Preview layouts.
@@ -318,11 +334,18 @@ private fun TabItem(
 		)
 	}) {
 		val vShape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
+		val vAccent = JewelTheme.globalColors.borders.focused
 		Row(
 			modifier =
 				Modifier
 					.clip(vShape)
 					.background(if (inActive) JewelTheme.globalColors.panelBackground else Color.Transparent)
+					.drawBehind {
+						if (inActive) {
+							val vY = size.height - 1.dp.toPx()
+							drawLine(vAccent, Offset(0f, vY), Offset(size.width, vY), strokeWidth = 2.dp.toPx())
+						}
+					}
 					.clickable(onClick = inOnSelect)
 					.pointerInput(inDoc) {
 						var vAccum = 0f
@@ -513,6 +536,13 @@ private fun StatusBar(inState: AppState) {
 	val vLineCount = if (vText.isEmpty()) 0 else vText.count { it == '\n' } + 1
 	val vWordCount = if (vText.isBlank()) 0 else vText.trim().split(Regex("\\s+")).size
 	val vMuted = JewelTheme.globalColors.text.info
+
+	// Caret position (1-based line/column) from the current selection.
+	val vCaret = vDoc.fieldValue.selection.start.coerceIn(0, vText.length)
+	val vBeforeCaret = vText.substring(0, vCaret)
+	val vCaretLine = vBeforeCaret.count { it == '\n' } + 1
+	val vCaretCol = vCaret - (vBeforeCaret.lastIndexOf('\n') + 1) + 1
+
 	Row(
 		modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
 		horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -520,6 +550,7 @@ private fun StatusBar(inState: AppState) {
 	) {
 		Text(vDoc.file?.absolutePath ?: "Unsaved document", color = vMuted, fontSize = 12.sp)
 		Spacer(Modifier.weight(1f))
+		Text("Ln $vCaretLine, Col $vCaretCol", color = vMuted, fontSize = 12.sp)
 		Text(if (vDoc.isDirty) "Modified" else "Saved", color = vMuted, fontSize = 12.sp)
 		Text("$vLineCount lines", color = vMuted, fontSize = 12.sp)
 		Text("$vWordCount words", color = vMuted, fontSize = 12.sp)
