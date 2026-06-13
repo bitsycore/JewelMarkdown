@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -392,31 +393,54 @@ private fun TabItem(
 // ==================
 
 // Editor and preview as separated cards, honoring the current view mode and the configured
-// spacing/corner settings.
+// spacing/corner settings. In Split mode a draggable divider sets the editor/preview ratio.
 @Composable
 private fun EditorAndPreview(inState: AppState, inModifier: Modifier) {
 	val vGap = inState.settings.contentGapDp.dp
 	val vCorner = inState.settings.paneCornerDp.dp
-	Row(
-		modifier = inModifier.padding(vGap),
-		horizontalArrangement = Arrangement.spacedBy(vGap),
+
+	@Composable
+	fun EditorCard(inPaneModifier: Modifier) =
+		Pane("Editor", inPaneModifier, vCorner) { EditorPane(inState, Modifier.fillMaxSize()) }
+
+	@Composable
+	fun PreviewCard(inPaneModifier: Modifier) =
+		Pane("Preview", inPaneModifier, vCorner) {
+			MarkdownPreview(
+				inText = inState.active.text,
+				inIsDark = inState.isDark,
+				inModifier = Modifier.fillMaxSize(),
+				// IntelliJ-style: links open only on Ctrl+Click; plain clicks select text.
+				inOnUrlClick = { vUrl -> if (inState.isCtrlDown) openUrl(vUrl) },
+			)
+		}
+
+	when (inState.viewMode) {
+		ViewMode.Editor -> Row(inModifier.padding(vGap)) { EditorCard(Modifier.weight(1f).fillMaxHeight()) }
+		ViewMode.Preview -> Row(inModifier.padding(vGap)) { PreviewCard(Modifier.weight(1f).fillMaxHeight()) }
+		ViewMode.Split -> {
+			var vWidth by remember { mutableStateOf(1f) }
+			Row(modifier = inModifier.padding(vGap).onSizeChanged { vWidth = it.width.toFloat().coerceAtLeast(1f) }) {
+				EditorCard(Modifier.weight(inState.splitRatio).fillMaxHeight())
+				SplitHandle(vGap) { vDelta -> inState.splitRatio = (inState.splitRatio + vDelta / vWidth).coerceIn(0.15f, 0.85f) }
+				PreviewCard(Modifier.weight(1f - inState.splitRatio).fillMaxHeight())
+			}
+		}
+	}
+}
+
+// Draggable divider between the editor and preview panes; reports horizontal drag in pixels.
+@Composable
+private fun SplitHandle(inWidth: Dp, inOnDrag: (Float) -> Unit) {
+	Box(
+		modifier =
+			Modifier
+				.width(inWidth)
+				.fillMaxHeight()
+				.pointerInput(Unit) { detectDragGestures { change, dragAmount -> change.consume(); inOnDrag(dragAmount.x) } },
+		contentAlignment = Alignment.Center,
 	) {
-		if (inState.viewMode != ViewMode.Preview) {
-			Pane("Editor", Modifier.weight(1f).fillMaxHeight(), vCorner) {
-				EditorPane(inState, Modifier.fillMaxSize())
-			}
-		}
-		if (inState.viewMode != ViewMode.Editor) {
-			Pane("Preview", Modifier.weight(1f).fillMaxHeight(), vCorner) {
-				MarkdownPreview(
-					inText = inState.active.text,
-					inIsDark = inState.isDark,
-					inModifier = Modifier.fillMaxSize(),
-					// IntelliJ-style: links open only on Ctrl+Click; plain clicks select text.
-					inOnUrlClick = { vUrl -> if (inState.isCtrlDown) openUrl(vUrl) },
-				)
-			}
-		}
+		Box(Modifier.width(2.dp).fillMaxHeight().background(JewelTheme.globalColors.borders.normal))
 	}
 }
 

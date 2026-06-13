@@ -50,6 +50,9 @@ class AppState(inIsDark: Boolean) {
 	var isDark by mutableStateOf(inIsDark)
 	var viewMode by mutableStateOf(ViewMode.Split)
 
+	// Editor/preview split position in Split mode (fraction given to the editor).
+	var splitRatio by mutableStateOf(0.5f)
+
 	// Ctrl held (tracked from the window key handler); preview links open only on Ctrl+Click.
 	var isCtrlDown by mutableStateOf(false)
 
