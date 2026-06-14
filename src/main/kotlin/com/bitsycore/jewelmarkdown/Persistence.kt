@@ -25,6 +25,7 @@ object Persistence {
 		vProps.getProperty("contentGap")?.toFloatOrNull()?.let { vSettings.contentGapDp = it }
 		vProps.getProperty("editorFontSize")?.toFloatOrNull()?.let { vSettings.editorFontSizeSp = it }
 		vProps.getProperty("showStatusBar")?.toBooleanStrictOrNull()?.let { vSettings.showStatusBar = it }
+		vProps.getProperty("showMemoryUsage")?.toBooleanStrictOrNull()?.let { vSettings.showMemoryUsage = it }
 		vProps.getProperty("restoreSession")?.toBooleanStrictOrNull()?.let { vSettings.restoreSession = it }
 		vProps.getProperty("exitOnLastTabClose")?.toBooleanStrictOrNull()?.let { vSettings.exitOnLastTabClose = it }
 		vProps.getProperty("useNonDecoratedWindow")?.toBooleanStrictOrNull()?.let { vSettings.useNonDecoratedWindow = it }
@@ -54,6 +55,7 @@ object Persistence {
 		vProps.setProperty("contentGap", vSettings.contentGapDp.toString())
 		vProps.setProperty("editorFontSize", vSettings.editorFontSizeSp.toString())
 		vProps.setProperty("showStatusBar", vSettings.showStatusBar.toString())
+		vProps.setProperty("showMemoryUsage", vSettings.showMemoryUsage.toString())
 		vProps.setProperty("restoreSession", vSettings.restoreSession.toString())
 		vProps.setProperty("exitOnLastTabClose", vSettings.exitOnLastTabClose.toString())
 		vProps.setProperty("useNonDecoratedWindow", vSettings.useNonDecoratedWindow.toString())

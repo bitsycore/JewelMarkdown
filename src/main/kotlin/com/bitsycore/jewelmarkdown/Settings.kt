@@ -99,6 +99,9 @@ class Settings {
 	// Whether the bottom status bar is shown.
 	var showStatusBar by mutableStateOf(true)
 
+	// Whether the status bar shows the JVM's current heap usage.
+	var showMemoryUsage by mutableStateOf(true)
+
 	// Re-open the tabs that were open at the previous shutdown. When off, the app starts empty.
 	var restoreSession by mutableStateOf(true)
 
@@ -118,6 +121,7 @@ class Settings {
 		editorFont = EditorFont.Monospace
 		editorFontSizeSp = 13f
 		showStatusBar = true
+		showMemoryUsage = true
 		restoreSession = true
 		exitOnLastTabClose = false
 		useNonDecoratedWindow = false

@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -147,7 +148,7 @@ fun AppBody(inState: AppState) {
 				if (vSettings.showStatusBar) {
 					// Always render the status bar so the islands always have a visible bottom
 					// margin. With no active doc the bar just shows a "no document" label.
-					StatusBar(inState.active)
+					StatusBar(inState)
 				}
 			}
 		}
@@ -666,40 +667,65 @@ private fun HelperButton(inLabel: String, inName: String, inHelp: String, inOnCl
 	}
 }
 
-// Bottom status bar: file path, dirty state and document metrics, in muted text. With no
-// active document we still render the bar (so the layout keeps a consistent bottom margin)
-// and show a single "No document" label in place of the metrics.
+// Bottom status bar: file path, dirty state, document metrics and optional JVM heap usage,
+// all in muted text. With no active document we still render the bar (so the layout keeps a
+// constant bottom margin) and show a single "No document" label in place of the metrics.
 @Composable
-private fun StatusBar(inDoc: Document?) {
+private fun StatusBar(inState: AppState) {
+	val vDoc = inState.active
 	val vMuted = JewelTheme.globalColors.text.info
 	Row(
 		modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
 		horizontalArrangement = Arrangement.spacedBy(16.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		if (inDoc == null) {
+		if (vDoc == null) {
 			Text("No document", color = vMuted, fontSize = 12.sp)
 			Spacer(Modifier.weight(1f))
+			if (inState.settings.showMemoryUsage) MemoryUsage(vMuted)
 			return@Row
 		}
-		val vText = inDoc.text
+		val vText = vDoc.text
 		val vLineCount = if (vText.isEmpty()) 0 else vText.count { it == '\n' } + 1
 		val vWordCount = if (vText.isBlank()) 0 else vText.trim().split(Regex("\\s+")).size
 
 		// Caret position (1-based line/column) from the current selection.
-		val vCaret = inDoc.fieldValue.selection.start.coerceIn(0, vText.length)
+		val vCaret = vDoc.fieldValue.selection.start.coerceIn(0, vText.length)
 		val vBeforeCaret = vText.substring(0, vCaret)
 		val vCaretLine = vBeforeCaret.count { it == '\n' } + 1
 		val vCaretCol = vCaret - (vBeforeCaret.lastIndexOf('\n') + 1) + 1
 
-		Text(inDoc.file?.absolutePath ?: "Unsaved document", color = vMuted, fontSize = 12.sp)
+		Text(vDoc.file?.absolutePath ?: "Unsaved document", color = vMuted, fontSize = 12.sp)
 		Spacer(Modifier.weight(1f))
 		Text("Ln $vCaretLine, Col $vCaretCol", color = vMuted, fontSize = 12.sp)
-		Text(if (inDoc.isDirty) "Modified" else "Saved", color = vMuted, fontSize = 12.sp)
+		Text(if (vDoc.isDirty) "Modified" else "Saved", color = vMuted, fontSize = 12.sp)
 		Text("$vLineCount lines", color = vMuted, fontSize = 12.sp)
 		Text("$vWordCount words", color = vMuted, fontSize = 12.sp)
 		Text("${vText.length} chars", color = vMuted, fontSize = 12.sp)
+		if (inState.settings.showMemoryUsage) MemoryUsage(vMuted)
 	}
+}
+
+// JVM heap-usage indicator: "used / total MB". Polled every 2 seconds in a coroutine so the
+// number stays roughly current without spinning the CPU. Clicking the label triggers
+// System.gc() the same way IntelliJ's heap indicator does.
+@Composable
+private fun MemoryUsage(inColor: Color) {
+	val vUsage by produceState(0L to 0L) {
+		while (true) {
+			val vRt = Runtime.getRuntime()
+			val vUsed = (vRt.totalMemory() - vRt.freeMemory()) / (1024L * 1024L)
+			val vTotal = vRt.totalMemory() / (1024L * 1024L)
+			value = vUsed to vTotal
+			kotlinx.coroutines.delay(2000)
+		}
+	}
+	Text(
+		"${vUsage.first} / ${vUsage.second} MB",
+		color = inColor,
+		fontSize = 12.sp,
+		modifier = Modifier.clickable { System.gc() },
+	)
 }
 
 // ==================
@@ -822,6 +848,11 @@ private fun EditorSettings(inState: AppState) {
 		Text("Status bar", modifier = Modifier.width(120.dp))
 		Chip("On", vSettings.showStatusBar) { vSettings.showStatusBar = true }
 		Chip("Off", !vSettings.showStatusBar) { vSettings.showStatusBar = false }
+	}
+	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+		Text("Memory usage", modifier = Modifier.width(120.dp))
+		Chip("On", vSettings.showMemoryUsage) { vSettings.showMemoryUsage = true }
+		Chip("Off", !vSettings.showMemoryUsage) { vSettings.showMemoryUsage = false }
 	}
 }
 
