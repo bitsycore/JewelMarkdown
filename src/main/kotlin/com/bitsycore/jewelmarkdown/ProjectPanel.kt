@@ -174,7 +174,7 @@ private fun FileTreeNode(inFile: File, inDepth: Int, inExpanded: SnapshotStateMa
 			}
 		}
 	} else {
-		val vIsActive = inState.active.file?.absolutePath == inFile.absolutePath
+		val vIsActive = inState.active?.file?.absolutePath == inFile.absolutePath
 		TreeRow(inDepth, inFile.name, inIsDir = false, inIsOpen = false, inIsActive = vIsActive) {
 			inState.openFile(inFile)
 		}

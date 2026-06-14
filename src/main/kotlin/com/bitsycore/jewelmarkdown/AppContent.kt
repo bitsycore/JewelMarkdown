@@ -105,11 +105,16 @@ fun AppBody(inState: AppState) {
 				Divider(Orientation.Vertical, Modifier.fillMaxHeight(), color = vBorder)
 			}
 			Column(Modifier.weight(1f).fillMaxHeight()) {
-				TabStrip(inState)
-				EditorAndPreview(inState, Modifier.weight(1f).fillMaxWidth())
-				if (vSettings.showStatusBar) {
-					Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
-					StatusBar(inState)
+				val vDoc = inState.active
+				if (vDoc != null) {
+					TabStrip(inState)
+					EditorAndPreview(inState, vDoc, Modifier.weight(1f).fillMaxWidth())
+					if (vSettings.showStatusBar) {
+						Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = vBorder)
+						StatusBar(vDoc)
+					}
+				} else {
+					WelcomePanel(inState, Modifier.weight(1f).fillMaxWidth())
 				}
 			}
 		}
@@ -147,6 +152,7 @@ internal fun AppMenus(inState: AppState, inModifier: Modifier = Modifier) {
 			actionItem(inState, ShortcutAction.SaveAs, vClose)
 			separator()
 			actionItem(inState, ShortcutAction.CloseTab, vClose)
+			menuItem("Close all tabs") { vClose(); inState.closeAll() }
 		}
 		MenuButton("Edit", vOpenMenu, vSetOpenMenu) { vClose ->
 			actionItem(inState, ShortcutAction.Bold, vClose)
@@ -169,6 +175,9 @@ internal fun AppMenus(inState: AppState, inModifier: Modifier = Modifier) {
 			menuItem("Status Bar", inState.settings.showStatusBar) { vClose(); inState.settings.showStatusBar = !inState.settings.showStatusBar }
 			separator()
 			actionItem(inState, ShortcutAction.OpenSettings, vClose)
+		}
+		MenuButton("Help", vOpenMenu, vSetOpenMenu) { vClose ->
+			menuItem("Open demo file") { vClose(); inState.openDemo() }
 		}
 	}
 }
@@ -451,19 +460,19 @@ private fun TabItem(
 // Editor and preview as separated cards, honoring the current view mode and the configured
 // spacing/corner settings. In Split mode a draggable divider sets the editor/preview ratio.
 @Composable
-private fun EditorAndPreview(inState: AppState, inModifier: Modifier) {
+private fun EditorAndPreview(inState: AppState, inDoc: Document, inModifier: Modifier) {
 	val vGap = inState.settings.contentGapDp.dp
 	val vCorner = inState.settings.paneCornerDp.dp
 
 	@Composable
 	fun EditorCard(inPaneModifier: Modifier) =
-		Pane(inPaneModifier, vCorner) { EditorPane(inState, Modifier.fillMaxSize()) }
+		Pane(inPaneModifier, vCorner) { EditorPane(inState, inDoc, Modifier.fillMaxSize()) }
 
 	@Composable
 	fun PreviewCard(inPaneModifier: Modifier) =
 		Pane(inPaneModifier, vCorner) {
 			MarkdownPreview(
-				inText = inState.active.text,
+				inText = inDoc.text,
 				inIsDark = inState.isDark,
 				inModifier = Modifier.fillMaxSize(),
 				// IntelliJ-style: links open only on Ctrl+Click; plain clicks select text.
@@ -517,19 +526,19 @@ private fun Pane(inModifier: Modifier, inCornerDp: Dp, inContent: @Composable Bo
 
 // Editor pane: a Markdown formatting toolbar above the raw text area.
 @Composable
-private fun EditorPane(inState: AppState, inModifier: Modifier) {
+private fun EditorPane(inState: AppState, inDoc: Document, inModifier: Modifier) {
 	Column(inModifier) {
 		MarkdownToolbar(inState)
 		Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = JewelTheme.globalColors.borders.normal)
-		EditorTextArea(inState, Modifier.weight(1f).fillMaxWidth())
+		EditorTextArea(inState, inDoc, Modifier.weight(1f).fillMaxWidth())
 	}
 }
 
 // Raw Markdown editor, monospace, with live Markdown syntax highlighting. Undecorated so it
 // blends into its pane card rather than drawing a second border.
 @Composable
-private fun EditorTextArea(inState: AppState, inModifier: Modifier) {
-	val vDoc = inState.active
+private fun EditorTextArea(inState: AppState, inDoc: Document, inModifier: Modifier) {
+	val vDoc = inDoc
 	val vEditorStyle =
 		JewelTheme.defaultTextStyle.copy(
 			fontFamily = inState.settings.editorFont.family,
@@ -591,8 +600,8 @@ private fun HelperButton(inLabel: String, inName: String, inHelp: String, inOnCl
 
 // Bottom status bar: file path, dirty state and document metrics, in muted text.
 @Composable
-private fun StatusBar(inState: AppState) {
-	val vDoc = inState.active
+private fun StatusBar(inDoc: Document) {
+	val vDoc = inDoc
 	val vText = vDoc.text
 	val vLineCount = if (vText.isEmpty()) 0 else vText.count { it == '\n' } + 1
 	val vWordCount = if (vText.isBlank()) 0 else vText.trim().split(Regex("\\s+")).size
@@ -630,7 +639,7 @@ private fun SettingsOverlay(inState: AppState) {
 	val vSettings = inState.settings
 	val vBorder = JewelTheme.globalColors.borders.normal
 	var vCategory by remember { mutableStateOf("Appearance") }
-	val vCategories = listOf("Appearance", "Editor", "Shortcuts", "About")
+	val vCategories = listOf("Appearance", "Editor", "Behavior", "Shortcuts", "About")
 	Box(
 		modifier =
 			Modifier
@@ -668,6 +677,7 @@ private fun SettingsOverlay(inState: AppState) {
 					when (vCategory) {
 						"Appearance" -> AppearanceSettings(inState)
 						"Editor" -> EditorSettings(inState)
+						"Behavior" -> BehaviorSettings(inState)
 						"Shortcuts" -> ShortcutSettings(inState)
 						else -> AboutSettings()
 					}
@@ -763,6 +773,45 @@ private fun ShortcutSettings(inState: AppState) {
 	}
 }
 
+// Behavior category: app-lifecycle and window-decoration toggles.
+@Composable
+private fun BehaviorSettings(inState: AppState) {
+	val vSettings = inState.settings
+	GroupHeader("Session")
+	OnOffRow(
+		inLabel = "Restore tabs at startup",
+		inDescription = "Re-open the files that were open when you last quit the app.",
+		inValue = vSettings.restoreSession,
+		inOnChange = { vSettings.restoreSession = it },
+	)
+	OnOffRow(
+		inLabel = "Quit when last tab closes",
+		inDescription = "Closing the final tab exits the app instead of showing the welcome panel.",
+		inValue = vSettings.exitOnLastTabClose,
+		inOnChange = { vSettings.exitOnLastTabClose = it },
+	)
+	GroupHeader("Window")
+	OnOffRow(
+		inLabel = "Use OS title bar",
+		inDescription = "Force the standard OS-decorated window even on the JetBrains Runtime. Takes effect at next launch.",
+		inValue = vSettings.useNonDecoratedWindow,
+		inOnChange = { vSettings.useNonDecoratedWindow = it },
+	)
+}
+
+// A labeled On/Off chip row with a one-line description, used by the Behavior settings.
+@Composable
+private fun OnOffRow(inLabel: String, inDescription: String, inValue: Boolean, inOnChange: (Boolean) -> Unit) {
+	Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+			Text(inLabel, modifier = Modifier.weight(1f))
+			Chip("On", inValue) { inOnChange(true) }
+			Chip("Off", !inValue) { inOnChange(false) }
+		}
+		Text(inDescription, color = JewelTheme.globalColors.text.info, fontSize = 12.sp)
+	}
+}
+
 // About category: brief app info.
 @Composable
 private fun AboutSettings() {
@@ -770,6 +819,31 @@ private fun AboutSettings() {
 	Text("Jewel Markdown", fontWeight = FontWeight.Bold, fontSize = 15.sp)
 	Text("A Compose for Desktop Markdown editor built with JetBrains Jewel.", color = vMuted, fontSize = 13.sp)
 	Text("Kotlin 2.2 · Compose 1.10 · Jewel 0.34 · JetBrains Runtime 21", color = vMuted, fontSize = 12.sp)
+}
+
+// Empty-state panel shown when no tabs are open: large title, brief hint, and shortcuts to
+// create or open a document.
+@Composable
+private fun WelcomePanel(inState: AppState, inModifier: Modifier) {
+	Box(modifier = inModifier, contentAlignment = Alignment.Center) {
+		Column(
+			horizontalAlignment = Alignment.CenterHorizontally,
+			verticalArrangement = Arrangement.spacedBy(12.dp),
+		) {
+			Text("Jewel Markdown", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+			Text(
+				"No tabs open. Create a new document or open an existing file to get started.",
+				color = JewelTheme.globalColors.text.info,
+				fontSize = 13.sp,
+			)
+			Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+				DefaultButton(onClick = { inState.newDocument() }) { Text("New file") }
+				DefaultButton(onClick = { chooseOpenFile()?.let { inState.openFile(it) } }) { Text("Open file…") }
+				DefaultButton(onClick = { chooseFolder()?.let { inState.projectRoot = it; inState.showProjectPanel = true } }) { Text("Open folder…") }
+				DefaultButton(onClick = { inState.openDemo() }) { Text("Open demo") }
+			}
+		}
+	}
 }
 
 // A compact selectable chip used for theme/preset choices.
@@ -812,15 +886,15 @@ private fun SliderRow(
 // MARK: Actions
 // ==================
 
-// Wraps the active document's selection with the given prefix/suffix.
+// Wraps the active document's selection with the given prefix/suffix. No-op when no tab is open.
 private fun editWrap(inState: AppState, inPrefix: String, inSuffix: String, inPlaceholder: String) {
-	val vDoc = inState.active
+	val vDoc = inState.active ?: return
 	vDoc.fieldValue = MarkdownActions.wrap(vDoc.fieldValue, inPrefix, inSuffix, inPlaceholder)
 }
 
-// Prefixes the active document's current line with the given marker.
+// Prefixes the active document's current line with the given marker. No-op when no tab is open.
 private fun editPrefix(inState: AppState, inPrefix: String) {
-	val vDoc = inState.active
+	val vDoc = inState.active ?: return
 	vDoc.fieldValue = MarkdownActions.prefixLine(vDoc.fieldValue, inPrefix)
 }
 
@@ -832,7 +906,7 @@ private fun onOpen(inState: AppState) {
 
 // Saves the active document to its file, falling back to "Save As" when there is none.
 private fun onSave(inState: AppState) {
-	val vDoc = inState.active
+	val vDoc = inState.active ?: return
 	val vFile = vDoc.file
 	if (vFile == null) {
 		onSaveAs(inState)
@@ -843,7 +917,7 @@ private fun onSave(inState: AppState) {
 
 // Prompts for a destination and writes the active document there.
 private fun onSaveAs(inState: AppState) {
-	val vDoc = inState.active
+	val vDoc = inState.active ?: return
 	val vFile = chooseSaveFile(vDoc.file?.name ?: "untitled.md") ?: return
 	runCatching { vFile.writeText(vDoc.text) }.onSuccess { vDoc.markSaved(vFile) }
 }

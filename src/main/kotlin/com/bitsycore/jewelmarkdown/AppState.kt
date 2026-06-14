@@ -43,7 +43,7 @@ class Document(inText: String, inFile: File?) {
 // the project (folder) panel state.
 @Stable
 class AppState(inIsDark: Boolean) {
-	// Open documents shown as tabs; kept non-empty.
+	// Open documents shown as tabs. May be empty — the welcome panel takes over in that case.
 	val documents = mutableStateListOf<Document>()
 	var activeIndex by mutableStateOf(0)
 
@@ -60,7 +60,7 @@ class AppState(inIsDark: Boolean) {
 	val settings = Settings()
 	var showSettings by mutableStateOf(false)
 
-	// Which title-bar menu (File/Edit/View) is currently open, shared so hovering switches.
+	// Which title-bar menu (File/Edit/View/Help) is currently open, shared so hovering switches.
 	var menuOpenName by mutableStateOf<String?>(null)
 
 	// Keyboard shortcuts (action -> key combo) and the action currently being rebound.
@@ -71,8 +71,12 @@ class AppState(inIsDark: Boolean) {
 	var projectRoot by mutableStateOf<File?>(null)
 	var showProjectPanel by mutableStateOf(false)
 
-	// The currently focused document (documents is never empty, so this is non-null).
-	val active: Document get() = documents[activeIndex.coerceIn(0, documents.lastIndex)]
+	// Latched when the app should shut down (used to honor "exit on last tab close" from
+	// inside a non-suspend action). Watched by main() via a LaunchedEffect.
+	var pendingExit by mutableStateOf(false)
+
+	// The currently focused document, or null when no tabs are open.
+	val active: Document? get() = documents.getOrNull(activeIndex)
 
 	// Opens a new empty scratch document and focuses it.
 	fun newDocument() {
@@ -92,12 +96,23 @@ class AppState(inIsDark: Boolean) {
 		activeIndex = documents.lastIndex
 	}
 
-	// Closes a tab, keeping at least one document open.
+	// Opens the bundled demo document as a fresh unsaved tab.
+	fun openDemo() {
+		documents.add(Document(kSampleMarkdown, null))
+		activeIndex = documents.lastIndex
+	}
+
+	// Closes a tab. Leaves the list empty if it was the last one — the welcome panel handles
+	// that. If the user opted in, closing the last tab also requests application exit.
 	fun closeDocument(inIndex: Int) {
 		if (inIndex !in documents.indices) return
 		documents.removeAt(inIndex)
-		if (documents.isEmpty()) documents.add(Document(kSampleMarkdown, null))
-		activeIndex = activeIndex.coerceIn(0, documents.lastIndex)
+		if (documents.isEmpty()) {
+			activeIndex = 0
+			if (settings.exitOnLastTabClose) pendingExit = true
+		} else {
+			activeIndex = activeIndex.coerceAtMost(documents.lastIndex)
+		}
 	}
 
 	// Closes every tab except the one at inIndex.
@@ -108,11 +123,11 @@ class AppState(inIsDark: Boolean) {
 		activeIndex = 0
 	}
 
-	// Closes all tabs, leaving a single empty scratch document.
+	// Closes all tabs, leaving the welcome panel. May also exit when the setting is on.
 	fun closeAll() {
 		documents.clear()
-		documents.add(Document("", null))
 		activeIndex = 0
+		if (settings.exitOnLastTabClose) pendingExit = true
 	}
 
 	// Moves the tab at inFrom to inTo, used for drag-to-reorder.
@@ -120,7 +135,7 @@ class AppState(inIsDark: Boolean) {
 		if (inFrom !in documents.indices || inTo !in documents.indices || inFrom == inTo) return
 		val vActive = active
 		documents.add(inTo, documents.removeAt(inFrom))
-		activeIndex = documents.indexOf(vActive).coerceAtLeast(0)
+		activeIndex = if (vActive == null) 0 else documents.indexOf(vActive).coerceAtLeast(0)
 	}
 
 	// Restores the keyboard shortcuts to the default Visual-Studio-style layout.
@@ -130,20 +145,28 @@ class AppState(inIsDark: Boolean) {
 	}
 
 	// Window/title-bar caption for the active document; a dot marks unsaved changes.
+	// Falls back to the app name when no tab is open.
 	fun windowTitle(): String {
-		val vDoc = active
+		val vDoc = active ?: return "Jewel Markdown"
 		val vDirtyMark = if (vDoc.isDirty) "● " else ""
 		return "$vDirtyMark${vDoc.title}  —  Jewel Markdown"
 	}
 }
 
-// Creates and remembers the app state seeded with one sample document, then applies any
-// saved preferences (theme, UI settings, keymap).
+// Creates and remembers the app state. Loads saved preferences, then conditionally restores
+// the previous session and/or opens the bundled demo document.
 @Composable
-fun rememberAppState(): AppState =
+fun rememberAppState(inOpenDemo: Boolean = false): AppState =
 	remember {
 		AppState(inIsDark = true).apply {
-			documents.add(Document(kSampleMarkdown, null))
-			Persistence.load(this)
+			val vSession = Persistence.load(this)
+			if (settings.restoreSession) {
+				for (vPath in vSession.paths) {
+					val vFile = File(vPath)
+					if (vFile.exists()) openFile(vFile)
+				}
+				if (documents.isNotEmpty()) activeIndex = vSession.activeIndex.coerceIn(0, documents.lastIndex)
+			}
+			if (inOpenDemo) openDemo()
 		}
 	}

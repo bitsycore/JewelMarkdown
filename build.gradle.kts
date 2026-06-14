@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URI
 
 // Build script for the Jewel Markdown desktop app.
 // Versions are pinned to a combination verified against Maven Central:
@@ -10,6 +11,9 @@ plugins {
 	kotlin("jvm") version "2.2.0"
 	id("org.jetbrains.kotlin.plugin.compose") version "2.2.0"
 	id("org.jetbrains.compose") version "1.10.3"
+	// Brings in JavaFX with the correct platform classifier — used to render Mermaid diagrams
+	// in an embedded WebView (WebKit). Avoids the JCEF/JBR native conflict on macOS.
+	id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 group = "com.bitsycore"
@@ -18,6 +22,13 @@ version = "1.0.0"
 repositories {
 	mavenCentral()
 	google()
+}
+
+// JavaFX modules required by the Mermaid renderer. The plugin auto-selects the right native
+// classifier for the current host so `./gradlew run` and packaged distributions both work.
+javafx {
+	version = "21.0.4"
+	modules("javafx.controls", "javafx.swing", "javafx.web")
 }
 
 // All org.jetbrains.jewel:* modules must share the exact same version string.
@@ -47,6 +58,27 @@ dependencies {
 	// Syntax-highlighting engine used to color fenced code blocks in the preview.
 	implementation("dev.snipme:highlights:1.0.0")
 }
+
+// Downloads the mermaid.min.js bundle into the build's resources at build time, so the running
+// app can load it from the classpath and render diagrams fully offline (no runtime web fetch).
+val kMermaidVersion = "11.4.1"
+val downloadMermaid by tasks.registering {
+	val vOut = layout.buildDirectory.file("mermaid/mermaid.min.js").get().asFile
+	outputs.file(vOut)
+	doLast {
+		if (!vOut.exists() || vOut.length() < 1024) {
+			vOut.parentFile.mkdirs()
+			val vUrl = URI("https://cdn.jsdelivr.net/npm/mermaid@$kMermaidVersion/dist/mermaid.min.js").toURL()
+			vUrl.openStream().use { vInput -> vOut.outputStream().use { vInput.copyTo(it) } }
+		}
+	}
+}
+
+sourceSets.named("main") {
+	resources.srcDir(layout.buildDirectory.dir("mermaid"))
+}
+
+tasks.named("processResources") { dependsOn(downloadMermaid) }
 
 // Pin the toolchain to the JetBrains Runtime so Kotlin compilation and the Compose
 // `run` task both use JBR (required by DecoratedWindow). foojay downloads it if absent.

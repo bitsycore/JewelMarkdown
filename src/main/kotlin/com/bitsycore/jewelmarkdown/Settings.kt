@@ -90,6 +90,17 @@ class Settings {
 	// Whether the bottom status bar is shown.
 	var showStatusBar by mutableStateOf(true)
 
+	// Re-open the tabs that were open at the previous shutdown. When off, the app starts empty.
+	var restoreSession by mutableStateOf(true)
+
+	// When closing the last open tab, also quit the application instead of showing the
+	// welcome panel.
+	var exitOnLastTabClose by mutableStateOf(false)
+
+	// Force the OS-decorated fallback window even when the JetBrains Runtime is available.
+	// Takes effect on the next launch (the window decoration is decided at startup).
+	var useNonDecoratedWindow by mutableStateOf(false)
+
 	// Restores every setting to its default value.
 	fun reset() {
 		gradient = GradientPreset.Mica
@@ -98,5 +109,8 @@ class Settings {
 		editorFont = EditorFont.Monospace
 		editorFontSizeSp = 13f
 		showStatusBar = true
+		restoreSession = true
+		exitOnLastTabClose = false
+		useNonDecoratedWindow = false
 	}
 }

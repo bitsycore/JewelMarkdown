@@ -52,5 +52,16 @@ fun greet(name: String) {
 > [!WARNING]
 > Edit this text and watch the preview update instantly.
 
+### Diagrams
+
+Mermaid blocks render inline through an embedded browser:
+
+```mermaid
+graph TD
+    A[Type Markdown] --> B{Live preview}
+    B --> C[Rendered text]
+    B --> D[Mermaid diagram]
+```
+
 Bare links autolink too: https://www.jetbrains.com
 """
