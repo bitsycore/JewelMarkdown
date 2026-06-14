@@ -181,7 +181,9 @@ private fun FileTreeNode(inFile: File, inDepth: Int, inExpanded: SnapshotStateMa
 	}
 }
 
-// A single indented, clickable tree row with a disclosure triangle for directories.
+// A single indented, clickable tree row with a disclosure triangle for directories. The active
+// file is highlighted with a rounded background that's inset 4dp from the panel edges, matching
+// IntelliJ's selection style.
 @Composable
 private fun TreeRow(
 	inDepth: Int,
@@ -191,12 +193,18 @@ private fun TreeRow(
 	inIsActive: Boolean,
 	inOnClick: () -> Unit,
 ) {
+	val vShape = RoundedCornerShape(6.dp)
+	val vAccent = JewelTheme.globalColors.borders.focused
+	val vBg = if (inIsActive) vAccent.copy(alpha = 0.18f) else Color.Transparent
 	Row(
 		modifier =
 			Modifier
 				.fillMaxWidth()
+				.padding(horizontal = 4.dp)
+				.clip(vShape)
+				.background(vBg)
 				.clickable(onClick = inOnClick)
-				.padding(start = (8 + inDepth * 14).dp, top = 3.dp, bottom = 3.dp, end = 8.dp),
+				.padding(start = (4 + inDepth * 14).dp, top = 3.dp, bottom = 3.dp, end = 8.dp),
 		verticalAlignment = Alignment.CenterVertically,
 		horizontalArrangement = Arrangement.spacedBy(4.dp),
 	) {

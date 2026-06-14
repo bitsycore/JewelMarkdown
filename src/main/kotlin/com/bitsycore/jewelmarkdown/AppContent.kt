@@ -47,6 +47,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
@@ -66,6 +68,7 @@ import org.jetbrains.jewel.ui.component.Slider
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.TextArea
 import org.jetbrains.jewel.ui.component.Tooltip
+import java.awt.Cursor
 import java.awt.datatransfer.DataFlavor
 import java.io.File
 import org.jetbrains.jewel.ui.component.separator
@@ -420,13 +423,13 @@ private fun TabItem(
 		)
 	}) {
 		val vShape = RoundedCornerShape(6.dp)
-		val vAccent = JewelTheme.globalColors.borders.focused
-		// Each tab carries its own visible background so it reads as an independent box even
-		// when inactive — matching IntelliJ's floating-pill style.
+		// Active tab tints with the theme's text color (white on dark, near-black on light)
+		// at a meaningful alpha so it clearly reads as the focused pill; inactive pills keep
+		// a very faint background so each still reads as its own box but recedes.
 		val vBg =
 			when {
-				inActive -> vAccent.copy(alpha = 0.18f)
-				else -> JewelTheme.globalColors.text.info.copy(alpha = 0.08f)
+				inActive -> JewelTheme.globalColors.text.normal.copy(alpha = 0.15f)
+				else -> JewelTheme.globalColors.text.info.copy(alpha = 0.05f)
 			}
 		Row(
 			modifier =
@@ -499,7 +502,7 @@ private fun EditorAndPreview(inState: AppState, inDoc: Document, inModifier: Mod
 							.onSizeChanged { vWidth = it.width.toFloat().coerceAtLeast(1f) },
 				) {
 					EditorPane(inState, inDoc, Modifier.weight(inState.splitRatio).fillMaxHeight())
-					SplitHandle(6.dp) { vDelta ->
+					SplitHandle(8.dp) { vDelta ->
 						inState.splitRatio = (inState.splitRatio + vDelta / vWidth).coerceIn(0.15f, 0.85f)
 					}
 					PreviewBody(inState, inDoc, Modifier.weight(1f - inState.splitRatio).fillMaxHeight())
@@ -538,17 +541,35 @@ private fun TabbedPane(inState: AppState, inCorner: Dp, inModifier: Modifier, in
 }
 
 // Draggable divider between the editor and preview panes; reports horizontal drag in pixels.
+// The hit area is wider than the visible line so the user has something easy to grab, and the
+// resize cursor + hover highlight make it obvious that it's draggable.
 @Composable
 private fun SplitHandle(inWidth: Dp, inOnDrag: (Float) -> Unit) {
+	val vInteraction = remember { MutableInteractionSource() }
+	val vHovered by vInteraction.collectIsHoveredAsState()
+	val vNormal = JewelTheme.globalColors.borders.normal
+	val vFocused = JewelTheme.globalColors.borders.focused
 	Box(
 		modifier =
 			Modifier
 				.width(inWidth)
 				.fillMaxHeight()
-				.pointerInput(Unit) { detectDragGestures { change, dragAmount -> change.consume(); inOnDrag(dragAmount.x) } },
+				.hoverable(vInteraction)
+				.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)))
+				.pointerInput(Unit) {
+					detectDragGestures { change, dragAmount ->
+						change.consume()
+						inOnDrag(dragAmount.x)
+					}
+				},
 		contentAlignment = Alignment.Center,
 	) {
-		Box(Modifier.width(2.dp).fillMaxHeight().background(JewelTheme.globalColors.borders.normal))
+		Box(
+			Modifier
+				.width(if (vHovered) 3.dp else 1.dp)
+				.fillMaxHeight()
+				.background(if (vHovered) vFocused else vNormal)
+		)
 	}
 }
 
