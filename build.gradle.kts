@@ -136,15 +136,16 @@ compose.desktop {
 		// The `run` task uses the Gradle daemon JVM unless javaHome is set; the daemon
 		// may be a non-JBR JDK, which DecoratedWindow rejects. Force it onto the JBR.
 		javaHome = jbrLauncher.get().metadata.installationPath.asFile.absolutePath
-		// JNA (Jewel's standalone dep) reflectively reads sun.misc.Unsafe.theUnsafe on every
-		// platform; JavaFX (Mermaid renderer) reaches into the AWT/Swing peer + Java2D
-		// internals, especially on macOS. These --add-opens are baked into the packaged
-		// app's launcher script so the .app / installed binary doesn't fail at startup with
-		// "Unable to make field … accessible" or "sun/misc/Unsafe" errors.
+		// JNA (Jewel's standalone dep) reflectively reads sun.misc.Unsafe.theUnsafe — that
+		// class lives in the `jdk.unsupported` module, not `java.base`. JavaFX (Mermaid
+		// renderer) reaches into the AWT/Swing peer + Java2D internals, especially on
+		// macOS. These --add-opens are baked into the packaged app's launcher args so the
+		// .app / installed binary doesn't fail at startup.
 		jvmArgs += listOf(
-			"--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+			"--add-opens", "jdk.unsupported/sun.misc=ALL-UNNAMED",
 			"--add-opens", "java.base/java.lang=ALL-UNNAMED",
 			"--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
+			"--add-opens", "java.base/java.nio=ALL-UNNAMED",
 			"--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
 			"--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED",
 			"--add-opens", "java.desktop/sun.java2d=ALL-UNNAMED",
@@ -166,6 +167,11 @@ compose.desktop {
 			description = "Compose for Desktop Markdown editor with Jewel UI."
 			vendor = "Bitsy"
 			licenseFile.set(project.file("LICENSE"))
+			// jpackage builds a minimal runtime image containing only the modules jlink can
+			// detect from our compiled classpath. JNA's reflective sun.misc.Unsafe access
+			// looks like nothing to jlink, so jdk.unsupported gets stripped and the .app
+			// dies at startup with "sun/misc/Unsafe". Force it in here.
+			modules("jdk.unsupported")
 		}
 	}
 }

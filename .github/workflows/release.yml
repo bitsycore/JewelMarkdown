@@ -44,16 +44,26 @@ jobs:
         if: matrix.platform != 'windows'
         run: chmod +x ./gradlew
 
-      # Native installer for the current OS: .dmg on macOS, .msi on Windows, .deb + .rpm on
-      # Linux. Compose Desktop's `packageReleaseDistributionForCurrentOS` dispatches to the
-      # right `package<Format>` task based on the runner.
-      - name: Build native installer(s)
-        run: ./gradlew --no-daemon packageReleaseDistributionForCurrentOS
-
       # The unpacked, runnable folder/bundle — `.app` on macOS, `JewelMarkdown/` directory
-      # everywhere else. Same JRE+classpath layout the installers wrap.
+      # everywhere else. Same JRE+classpath layout the installers wrap, also used as input
+      # for the AppImage step on Linux.
       - name: Build release distributable (standalone)
-        run: ./gradlew --no-daemon createReleaseDistributable
+        run: ./gradlew --no-daemon createReleaseDistributable --stacktrace
+
+      # Per-platform installer tasks split out so each format shows as its own step in the
+      # CI log — easier to spot which one failed if one of them does, and `--stacktrace`
+      # produces a usable error trace inline.
+      - name: Build DMG installer (macOS)
+        if: matrix.platform == 'macos'
+        run: ./gradlew --no-daemon packageReleaseDmg --stacktrace
+
+      - name: Build MSI installer (Windows)
+        if: matrix.platform == 'windows'
+        run: ./gradlew --no-daemon packageReleaseMsi --stacktrace
+
+      - name: Build DEB + RPM installers (Linux)
+        if: matrix.platform == 'linux'
+        run: ./gradlew --no-daemon packageReleaseDeb packageReleaseRpm --stacktrace
 
       - name: Zip standalone .app (macOS)
         if: matrix.platform == 'macos'
