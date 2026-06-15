@@ -59,6 +59,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.text.font.FontWeight
@@ -206,6 +207,12 @@ internal fun AppMenus(inState: AppState, inModifier: Modifier = Modifier) {
 			actionItem(inState, ShortcutAction.BulletList, vClose)
 			actionItem(inState, ShortcutAction.Quote, vClose)
 			actionItem(inState, ShortcutAction.Link, vClose)
+			separator()
+			actionItem(inState, ShortcutAction.DuplicateLine, vClose)
+			actionItem(inState, ShortcutAction.DeleteLine, vClose)
+			actionItem(inState, ShortcutAction.MoveLineUp, vClose)
+			actionItem(inState, ShortcutAction.MoveLineDown, vClose)
+			actionItem(inState, ShortcutAction.SelectLine, vClose)
 		}
 		MenuButton("View", vOpenMenu, vSetOpenMenu) { vClose ->
 			actionItem(inState, ShortcutAction.ViewEditor, vClose, inState.viewMode == ViewMode.Editor)
@@ -1171,10 +1178,18 @@ private fun editWrap(inState: AppState, inPrefix: String, inSuffix: String, inPl
 	vDoc.fieldValue = MarkdownActions.wrap(vDoc.fieldValue, inPrefix, inSuffix, inPlaceholder)
 }
 
-// Prefixes the active document's current line with the given marker. No-op when no tab is open.
+// Prefixes the active document's current line with the given marker. Multi-line selections
+// get the prefix applied to every line they touch. No-op when no tab is open.
 private fun editPrefix(inState: AppState, inPrefix: String) {
 	val vDoc = inState.active ?: return
 	vDoc.fieldValue = MarkdownActions.prefixLine(vDoc.fieldValue, inPrefix)
+}
+
+// Applies a generic TextFieldValue transform (duplicate, delete, move, select line) to the
+// active document. No-op when no tab is open.
+private fun editTransform(inState: AppState, inTransform: (TextFieldValue) -> TextFieldValue) {
+	val vDoc = inState.active ?: return
+	vDoc.fieldValue = inTransform(vDoc.fieldValue)
 }
 
 // Opens a Markdown file into a new tab.
@@ -1226,6 +1241,11 @@ internal fun runShortcutAction(inState: AppState, inAction: ShortcutAction) {
 		ShortcutAction.Quote -> editPrefix(inState, "> ")
 		ShortcutAction.BulletList -> editPrefix(inState, "- ")
 		ShortcutAction.Link -> editWrap(inState, "[", "](https://)", "text")
+		ShortcutAction.DuplicateLine -> editTransform(inState, MarkdownActions::duplicateLines)
+		ShortcutAction.DeleteLine -> editTransform(inState, MarkdownActions::deleteLines)
+		ShortcutAction.MoveLineUp -> editTransform(inState, MarkdownActions::moveLinesUp)
+		ShortcutAction.MoveLineDown -> editTransform(inState, MarkdownActions::moveLinesDown)
+		ShortcutAction.SelectLine -> editTransform(inState, MarkdownActions::selectLines)
 		ShortcutAction.ToggleProjectPanel -> inState.showProjectPanel = !inState.showProjectPanel
 		ShortcutAction.ViewEditor -> inState.viewMode = ViewMode.Editor
 		ShortcutAction.ViewSplit -> inState.viewMode = ViewMode.Split

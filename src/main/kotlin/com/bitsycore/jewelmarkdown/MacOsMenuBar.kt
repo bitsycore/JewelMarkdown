@@ -56,6 +56,12 @@ private fun buildMenuBar(inState: AppState): JMenuBar {
 			actionItem(it, inState, ShortcutAction.BulletList)
 			actionItem(it, inState, ShortcutAction.Quote)
 			actionItem(it, inState, ShortcutAction.Link)
+			it.addSeparator()
+			actionItem(it, inState, ShortcutAction.DuplicateLine)
+			actionItem(it, inState, ShortcutAction.DeleteLine)
+			actionItem(it, inState, ShortcutAction.MoveLineUp)
+			actionItem(it, inState, ShortcutAction.MoveLineDown)
+			actionItem(it, inState, ShortcutAction.SelectLine)
 		}
 	)
 	vBar.add(

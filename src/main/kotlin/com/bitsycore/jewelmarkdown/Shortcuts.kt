@@ -24,6 +24,11 @@ enum class ShortcutAction(val displayName: String) {
 	Quote("Quote"),
 	BulletList("Bullet list"),
 	Link("Link"),
+	DuplicateLine("Duplicate line"),
+	DeleteLine("Delete line"),
+	MoveLineUp("Move line up"),
+	MoveLineDown("Move line down"),
+	SelectLine("Select line"),
 	ToggleProjectPanel("Toggle project files"),
 	ViewEditor("Editor view"),
 	ViewSplit("Split view"),
@@ -107,6 +112,11 @@ fun defaultKeymap(): SnapshotStateMap<ShortcutAction, Shortcut> {
 	vMap[ShortcutAction.Quote] = Shortcut(Key.Q, ctrl = true, shift = true)
 	vMap[ShortcutAction.BulletList] = Shortcut(Key.L, ctrl = true, shift = true)
 	vMap[ShortcutAction.Link] = Shortcut(Key.K, ctrl = true)
+	vMap[ShortcutAction.DuplicateLine] = Shortcut(Key.D, ctrl = true)
+	vMap[ShortcutAction.DeleteLine] = Shortcut(Key.K, ctrl = true, shift = true)
+	vMap[ShortcutAction.MoveLineUp] = Shortcut(Key.DirectionUp, alt = true, shift = true)
+	vMap[ShortcutAction.MoveLineDown] = Shortcut(Key.DirectionDown, alt = true, shift = true)
+	vMap[ShortcutAction.SelectLine] = Shortcut(Key.L, ctrl = true)
 	vMap[ShortcutAction.ToggleProjectPanel] = Shortcut(Key.E, ctrl = true, shift = true)
 	vMap[ShortcutAction.ViewEditor] = Shortcut(Key.One, ctrl = true)
 	vMap[ShortcutAction.ViewSplit] = Shortcut(Key.Two, ctrl = true)
