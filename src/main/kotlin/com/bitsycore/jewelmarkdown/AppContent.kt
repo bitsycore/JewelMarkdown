@@ -551,14 +551,16 @@ private fun TabbedPane(inState: AppState, inCorner: Dp, inModifier: Modifier, in
 }
 
 // Draggable divider between the editor and preview panes; reports horizontal drag in pixels.
-// The hit area is wider than the visible line so the user has something easy to grab, and the
-// resize cursor + hover highlight make it obvious that it's draggable.
+// The hit area is wider than the visible line so the user has something easy to grab. The line
+// itself stays 1dp wide at all times (no layout shift on hover); discoverability comes from
+// the resize cursor and a thin outline that appears around the line while the pointer is over
+// the hit area.
 @Composable
 private fun SplitHandle(inWidth: Dp, inOnDrag: (Float) -> Unit) {
 	val vInteraction = remember { MutableInteractionSource() }
 	val vHovered by vInteraction.collectIsHoveredAsState()
 	val vNormal = JewelTheme.globalColors.borders.normal
-	val vFocused = JewelTheme.globalColors.borders.focused
+	val vHighlight = JewelTheme.globalColors.text.normal
 	Box(
 		modifier =
 			Modifier
@@ -574,12 +576,27 @@ private fun SplitHandle(inWidth: Dp, inOnDrag: (Float) -> Unit) {
 				},
 		contentAlignment = Alignment.Center,
 	) {
-		Box(
-			Modifier
-				.width(if (vHovered) 3.dp else 1.dp)
-				.fillMaxHeight()
-				.background(if (vHovered) vFocused else vNormal)
-		)
+		// The visible line stays 1dp wide so it never reflows the adjacent panes. On hover we
+		// draw a high-contrast outline using Canvas (which paints inside the hit area, outside
+		// the 1dp line) so the indicator appears without changing the line's bounding box.
+		if (vHovered) {
+			Canvas(modifier = Modifier.fillMaxSize()) {
+				val vStroke = 1.dp.toPx()
+				val vLineHalf = 0.5.dp.toPx()
+				val vCx = size.width / 2f
+				drawRect(
+					color = vHighlight,
+					topLeft = Offset(vCx - vLineHalf - vStroke, 0f),
+					size = Size(vStroke, size.height),
+				)
+				drawRect(
+					color = vHighlight,
+					topLeft = Offset(vCx + vLineHalf, 0f),
+					size = Size(vStroke, size.height),
+				)
+			}
+		}
+		Box(Modifier.width(1.dp).fillMaxHeight().background(vNormal))
 	}
 }
 
