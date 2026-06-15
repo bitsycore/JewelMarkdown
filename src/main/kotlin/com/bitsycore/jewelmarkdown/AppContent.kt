@@ -563,7 +563,9 @@ private fun TabbedPane(inState: AppState, inCorner: Dp, inModifier: Modifier, in
 private fun SplitHandle(inWidth: Dp, inOnDrag: (Float) -> Unit) {
 	val vInteraction = remember { MutableInteractionSource() }
 	val vHovered by vInteraction.collectIsHoveredAsState()
-	val vNormal = JewelTheme.globalColors.borders.normal
+	// Same alpha-0.1 wash the card outline and inner dividers use, so every separator in the
+	// editor area reads as the same line.
+	val vNormal = JewelTheme.globalColors.text.normal.copy(alpha = 0.1f)
 	val vHighlight = JewelTheme.globalColors.text.normal
 	Box(
 		modifier =
