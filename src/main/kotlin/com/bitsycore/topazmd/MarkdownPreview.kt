@@ -53,8 +53,9 @@ fun MarkdownPreview(
 		buildMarkdownStyling(inIsDark, vBaseStyle, vEditorStyle, vBorder)
 	}
 
-	// Block renderer including the GFM table/alert/strikethrough rendering extensions plus the
-	// custom Mermaid renderer that hosts a KCEF browser per diagram.
+	// Block renderer for the GFM table / alert / strikethrough extensions. Mermaid fenced
+	// blocks (```mermaid) fall through to the default code-block renderer — no graphical
+	// preview is wired up.
 	val vRenderer = remember(vStyling, inIsDark) {
 		val vAlertStyling = buildAlertStyling(inIsDark, vBaseStyle.color)
 		val vRendererExtensions =
@@ -65,7 +66,6 @@ fun MarkdownPreview(
 				),
 				GitHubAlertRendererExtension(vAlertStyling, vStyling),
 				GitHubStrikethroughRendererExtension,
-				MermaidJewelExtension(inIsDark),
 			)
 		if (inIsDark) {
 			MarkdownBlockRenderer.markdownRendererDark(vStyling, vRendererExtensions)
@@ -87,11 +87,10 @@ fun MarkdownPreview(
 		)
 	}
 
-	// Re-parse off the UI thread whenever the document text changes, then swap fenced code
-	// blocks tagged with "mermaid" for our custom block so the renderer extension takes over.
+	// Re-parse off the UI thread whenever the document text changes.
 	val vBlocks by produceState(emptyList<MarkdownBlock>(), inText, vProcessor) {
 		value = withContext(Dispatchers.Default) {
-			transformMermaidBlocks(vProcessor.processMarkdownDocument(inText))
+			vProcessor.processMarkdownDocument(inText)
 		}
 	}
 

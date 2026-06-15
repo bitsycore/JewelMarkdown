@@ -51,8 +51,12 @@ private val kTextExtensions = setOf("md", "markdown", "mdx", "txt")
 // show/hide the project files panel.
 @Composable
 internal fun ActivityBar(inState: AppState) {
+	// Vertical padding matches the islands' top/bottom (2× edgeGap) so the first icon sits at
+	// the same vertical position as the islands' top edge. Left padding (1× edgeGap) mirrors
+	// the islands' `start` padding so the activity bar isn't flush against the window edge.
+	val vEdge = inState.settings.edgeGapDp.dp
 	Column(
-		modifier = Modifier.fillMaxHeight().width(44.dp).padding(vertical = 8.dp),
+		modifier = Modifier.fillMaxHeight().width(44.dp + vEdge).padding(start = vEdge, top = vEdge * 2, bottom = vEdge * 2),
 		horizontalAlignment = Alignment.CenterHorizontally,
 		verticalArrangement = Arrangement.spacedBy(6.dp),
 	) {

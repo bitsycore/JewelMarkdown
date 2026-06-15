@@ -104,11 +104,6 @@ private fun installStderrLineFilter(vararg inDropContains: String) {
 // — or the user opted into a plain window via Settings — so we use a standard Compose Window
 // and reproduce the menus in an in-body header instead.
 fun main(inArgs: Array<String>) {
-	// Enable Compose's Swing interop blending so the JavaFX WebView used by the Mermaid
-	// renderer composes correctly with Compose overlays (the Settings dialog stays on top)
-	// and stops flashing white during scroll. Must be set before any Compose window is created.
-	System.setProperty("compose.interop.blending", "true")
-
 	// JavaFX prints an "Unsupported JavaFX configuration" warning when it's loaded from the
 	// classpath instead of the JPMS module path — harmless in a non-modular Compose Desktop
 	// app, but noisy in the run log. Jewel's standalone distribution likewise emits SEVERE
@@ -135,7 +130,7 @@ fun main(inArgs: Array<String>) {
 	// must be set before AWT initializes.
 	if (kIsMac) {
 		System.setProperty("apple.laf.useScreenMenuBar", "true")
-		System.setProperty("apple.awt.application.name", "JMD")
+		System.setProperty("apple.awt.application.name", "TopazMD")
 		System.setProperty("apple.awt.application.appearance", "system")
 	}
 
@@ -170,14 +165,6 @@ private fun runApp(inArgs: Array<String>): Unit = application {
 			Persistence.save(vState)
 			exitApplication()
 		}
-
-		// Warm up the Mermaid renderer in the background so diagrams render as soon as the
-		// user opens a document that contains one.
-		RememberMermaidInit()
-
-		// Suppress the heavyweight WebView whenever a modal Compose overlay (currently the
-		// Settings dialog) is open; otherwise the JFXPanel eats the outside-tap dismiss.
-		MermaidRuntime.suppressed = vState.showSettings
 
 		// Honors "exit on last tab close": when a close action latches pendingExit, persist and quit.
 		LaunchedEffect(vState.pendingExit) {

@@ -96,6 +96,13 @@ class Settings {
 	// Spacing around and between the panels, in dp.
 	var contentGapDp by mutableStateOf(12f)
 
+	// Tight chrome unit (in dp) shared by the small "edge" paddings of the islands layout —
+	// the left/bottom window-edge gap, and (doubled) the gap between the project panel and
+	// the editor island. Doubling the inter-panel value keeps the gap that sits between two
+	// surfaces visually larger than the gap that sits between a surface and the window edge,
+	// the standard "outer 1× / inner 2×" rhythm.
+	var edgeGapDp by mutableStateOf(2f)
+
 	// Editor font family and size.
 	var editorFont by mutableStateOf(EditorFont.Monospace)
 	var editorFontSizeSp by mutableStateOf(13f)
@@ -127,6 +134,7 @@ class Settings {
 		gradient = GradientPreset.Mica
 		paneCornerDp = 8f
 		contentGapDp = 12f
+		edgeGapDp = 2f
 		editorFont = EditorFont.Monospace
 		editorFontSizeSp = 13f
 		editorWordWrap = true

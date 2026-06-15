@@ -124,23 +124,22 @@ fun AppBody(inState: AppState) {
 							.weight(1f)
 							.fillMaxWidth()
 							.padding(
-								// Left side stays tight (2dp) because the activity bar already
-								// provides visual margin from the window edge. The right side
-								// matches the top (8dp) so the editor island has the same
-								// breathing room from the window edge as from the title bar.
-								start = 2.dp,
-								end = 8.dp,
-								// Aligns the top of the islands with the activity bar's first
-								// icon (which sits at vertical = 8.dp inside the bar).
-								top = 8.dp,
-								// When the status bar is on it provides its own 6dp vertical
-								// padding; when off we still want a small margin so the islands
-								// don't touch the window edge — 2dp minimum.
-								bottom = if (vSettings.showStatusBar) 0.dp else 2.dp,
+								// Window-edge paddings driven by the edgeGap setting. The left
+								// side is tight (1× edgeGap) because the activity bar abuts it
+								// and provides its own visual buffer. Top and bottom use 2×.
+								// The right uses 4× so its visual breathing room matches the
+								// left's combined (activity bar + 1× edgeGap on each side).
+								start = vSettings.edgeGapDp.dp,
+								end = (vSettings.edgeGapDp * 4).dp,
+								top = (vSettings.edgeGapDp * 2).dp,
+								bottom = (vSettings.edgeGapDp * 2).dp,
 							),
-					// Tight 2dp between the project-pane island and the editor island — they
-					// read as adjacent surfaces, not as two separate sections of the window.
-					horizontalArrangement = Arrangement.spacedBy(2.dp),
+					// Gap between the project-pane island and the editor island. Uses 2×
+					// edgeGap on purpose: a gap that sits between two surfaces reads as larger
+					// than a gap that sits between a surface and the window edge, so doubling
+					// the unit keeps the visual rhythm consistent with the chrome's outer
+					// paddings.
+					horizontalArrangement = Arrangement.spacedBy((vSettings.edgeGapDp * 2).dp),
 				) {
 					if (inState.showProjectPanel) {
 						Pane(Modifier.width(250.dp).fillMaxHeight(), vCorner) {
@@ -842,14 +841,18 @@ private fun StatusBar(inState: AppState) {
 		val vWordCount = if (vText.isBlank()) 0 else vText.trim().split(Regex("\\s+")).size
 
 		// Caret position (1-based line/column) from the current selection.
-		val vCaret = vDoc.fieldValue.selection.start.coerceIn(0, vText.length)
+		val vSelection = vDoc.fieldValue.selection
+		val vCaret = vSelection.start.coerceIn(0, vText.length)
 		val vBeforeCaret = vText.substring(0, vCaret)
 		val vCaretLine = vBeforeCaret.count { it == '\n' } + 1
 		val vCaretCol = vCaret - (vBeforeCaret.lastIndexOf('\n') + 1) + 1
+		// Selection length in characters; zero when the caret is a point insertion (no range).
+		val vSelectionLen = (vSelection.max - vSelection.min).coerceAtLeast(0)
 
 		Text(vDoc.file?.absolutePath ?: "Unsaved document", color = vMuted, fontSize = 12.sp)
 		Spacer(Modifier.weight(1f))
 		Text("Ln $vCaretLine, Col $vCaretCol", color = vMuted, fontSize = 12.sp)
+		if (vSelectionLen > 0) Text("$vSelectionLen selected", color = vMuted, fontSize = 12.sp)
 		Text(if (vDoc.isDirty) "Modified" else "Saved", color = vMuted, fontSize = 12.sp)
 		Text("$vLineCount lines", color = vMuted, fontSize = 12.sp)
 		Text("$vWordCount words", color = vMuted, fontSize = 12.sp)
@@ -993,6 +996,7 @@ private fun AppearanceSettings(inState: AppState) {
 	GroupHeader("Layout")
 	SliderRow("Panel corners", vSettings.paneCornerDp, 0f..20f) { vSettings.paneCornerDp = it }
 	SliderRow("Panel spacing", vSettings.contentGapDp, 0f..28f) { vSettings.contentGapDp = it }
+	SliderRow("Edge gap", vSettings.edgeGapDp, 0f..14f) { vSettings.edgeGapDp = it }
 }
 
 // Editor category: font family/size and status bar.

@@ -23,9 +23,6 @@ plugins {
 	kotlin("jvm") version "2.2.0"
 	id("org.jetbrains.kotlin.plugin.compose") version "2.2.0"
 	id("org.jetbrains.compose") version "1.10.3"
-	// Brings in JavaFX with the correct platform classifier — used to render Mermaid diagrams
-	// in an embedded WebView (WebKit). Avoids the JCEF/JBR native conflict on macOS.
-	id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 group = "com.bitsycore"
@@ -34,13 +31,6 @@ version = "1.0.0"
 repositories {
 	mavenCentral()
 	google()
-}
-
-// JavaFX modules required by the Mermaid renderer. The plugin auto-selects the right native
-// classifier for the current host so `./gradlew run` and packaged distributions both work.
-javafx {
-	version = "21.0.4"
-	modules("javafx.controls", "javafx.swing", "javafx.web")
 }
 
 // All org.jetbrains.jewel:* modules must share the exact same version string.
@@ -284,26 +274,19 @@ compose.desktop {
 		// may be a non-JBR JDK, which DecoratedWindow rejects. Force it onto the JBR.
 		javaHome = jbrLauncher.get().metadata.installationPath.asFile.absolutePath
 		// JNA (Jewel's standalone dep) reflectively reads sun.misc.Unsafe.theUnsafe — that
-		// class lives in the `jdk.unsupported` module, not `java.base`. JavaFX (Mermaid
-		// renderer) reaches into the AWT/Swing peer + Java2D internals, especially on
-		// macOS. These --add-opens are baked into the packaged app's launcher args so the
-		// .app / installed binary doesn't fail at startup.
+		// class lives in the `jdk.unsupported` module, not `java.base`. The other --add-opens
+		// loosen JDK internals Jewel and the JBR reach into reflectively. Baked into the
+		// packaged app's launcher args so the .app / installed binary doesn't fail at startup.
 		jvmArgs += listOf(
 			"--add-opens", "jdk.unsupported/sun.misc=ALL-UNNAMED",
 			"--add-opens", "java.base/java.lang=ALL-UNNAMED",
 			"--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
 			"--add-opens", "java.base/java.nio=ALL-UNNAMED",
-			"--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
-			"--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED",
-			"--add-opens", "java.desktop/sun.java2d=ALL-UNNAMED",
-			"--add-opens", "java.desktop/sun.java2d.opengl=ALL-UNNAMED",
-			"--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
-			"--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
 		)
-		// ProGuard is on by default for release builds in Compose Desktop, but JavaFX
-		// (Mermaid), Jewel, JNA and JBR rely on extensive reflection that would need
-		// hundreds of keep rules to shrink safely. Disabling it makes packageRelease* just
-		// bundle the JAR + JBR — larger but reliable, and that's what we ship in CI.
+		// ProGuard is on by default for release builds in Compose Desktop, but Jewel, JNA and
+		// JBR rely on extensive reflection that would need hundreds of keep rules to shrink
+		// safely. Disabling it makes packageRelease* just bundle the JAR + JBR — larger but
+		// reliable, and that's what we ship in CI.
 		buildTypes.release.proguard {
 			isEnabled.set(false)
 		}

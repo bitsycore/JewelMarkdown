@@ -24,6 +24,7 @@ object Persistence {
 		vProps.getProperty("editorFont")?.let { vName -> EditorFont.entries.firstOrNull { it.name == vName }?.let { vSettings.editorFont = it } }
 		vProps.getProperty("paneCorner")?.toFloatOrNull()?.let { vSettings.paneCornerDp = it }
 		vProps.getProperty("contentGap")?.toFloatOrNull()?.let { vSettings.contentGapDp = it }
+		vProps.getProperty("edgeGap")?.toFloatOrNull()?.let { vSettings.edgeGapDp = it }
 		vProps.getProperty("editorFontSize")?.toFloatOrNull()?.let { vSettings.editorFontSizeSp = it }
 		vProps.getProperty("editorWordWrap")?.toBooleanStrictOrNull()?.let { vSettings.editorWordWrap = it }
 		vProps.getProperty("showStatusBar")?.toBooleanStrictOrNull()?.let { vSettings.showStatusBar = it }
@@ -56,6 +57,7 @@ object Persistence {
 		vProps.setProperty("editorFont", vSettings.editorFont.name)
 		vProps.setProperty("paneCorner", vSettings.paneCornerDp.toString())
 		vProps.setProperty("contentGap", vSettings.contentGapDp.toString())
+		vProps.setProperty("edgeGap", vSettings.edgeGapDp.toString())
 		vProps.setProperty("editorFontSize", vSettings.editorFontSizeSp.toString())
 		vProps.setProperty("editorWordWrap", vSettings.editorWordWrap.toString())
 		vProps.setProperty("showStatusBar", vSettings.showStatusBar.toString())
