@@ -26,9 +26,25 @@ fun chooseSaveFile(inSuggestedName: String): File? {
 	return File(vDir, vName)
 }
 
-// Native "choose folder" dialog (Swing JFileChooser, since AWT FileDialog cannot pick
-// directories on Windows). Returns the chosen folder, or null if cancelled.
+// "Choose folder" dialog. On macOS the AWT FileDialog can pick directories natively when the
+// `apple.awt.fileDialogForDirectories` system property is true — that flips it to a native
+// NSOpenPanel in directory mode. Everywhere else we fall back to Swing's JFileChooser since
+// FileDialog can't pick directories on Windows/Linux. Returns the chosen folder, or null.
 fun chooseFolder(): File? {
+	if (kIsMac) {
+		val vPrevious = System.getProperty("apple.awt.fileDialogForDirectories")
+		System.setProperty("apple.awt.fileDialogForDirectories", "true")
+		try {
+			val vDialog = FileDialog(null as Frame?, "Open Folder", FileDialog.LOAD)
+			vDialog.isVisible = true
+			val vDir = vDialog.directory ?: return null
+			val vName = vDialog.file ?: return null
+			return File(vDir, vName)
+		} finally {
+			if (vPrevious == null) System.clearProperty("apple.awt.fileDialogForDirectories")
+			else System.setProperty("apple.awt.fileDialogForDirectories", vPrevious)
+		}
+	}
 	val vChooser = JFileChooser()
 	vChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
 	vChooser.dialogTitle = "Open Folder"
