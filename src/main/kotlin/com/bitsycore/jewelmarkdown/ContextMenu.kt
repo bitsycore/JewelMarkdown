@@ -11,10 +11,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -71,14 +69,14 @@ object ThemedContextMenuRepresentation : ContextMenuRepresentation {
 private fun ThemedContextMenuPanel(inItems: List<ContextMenuItem>, inOnClick: (ContextMenuItem) -> Unit) {
 	val vShape = RoundedCornerShape(6.dp)
 	val vOutline = JewelTheme.globalColors.text.normal.copy(alpha = 0.1f)
-	// Sized to the widest label (clamped to a comfortable min/max) rather than filling the
-	// window. `width(IntrinsicSize.Max)` makes the Column shrink-wrap its tallest row's
-	// intrinsic width; widthIn keeps very short menus readable and very long ones bounded.
+	// Sized via widthIn (min/max) only — combining widthIn with IntrinsicSize.Max produced
+	// pathological measurements with fillMaxWidth rows, which is what made the menu fill the
+	// window earlier. Letting the rows fill the Column and capping the Column at 320dp
+	// gives a predictable popup that doesn't drop items.
 	Column(
 		modifier =
 			Modifier
-				.widthIn(min = 160.dp, max = 320.dp)
-				.width(IntrinsicSize.Max)
+				.widthIn(min = 200.dp, max = 320.dp)
 				.clip(vShape)
 				.background(JewelTheme.globalColors.panelBackground)
 				.border(1.dp, vOutline, vShape)
@@ -87,9 +85,8 @@ private fun ThemedContextMenuPanel(inItems: List<ContextMenuItem>, inOnClick: (C
 		// Divider is the same Jewel component used by the editor card; uses a more saturated
 		// 18% wash than the outer outline so the separator actually reads inside the panel.
 		val vDividerColor = JewelTheme.globalColors.text.normal.copy(alpha = 0.18f)
-		var vPrev: ContextMenuItem? = null
-		for (vItem in inItems) {
-			if (vPrev != null && shouldInsertDivider(vPrev, vItem)) {
+		for ((vIdx, vItem) in inItems.withIndex()) {
+			if (separatorBefore(inItems, vIdx)) {
 				Divider(
 					Orientation.Horizontal,
 					Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 6.dp),
@@ -97,7 +94,6 @@ private fun ThemedContextMenuPanel(inItems: List<ContextMenuItem>, inOnClick: (C
 				)
 			}
 			ContextMenuRow(vItem.label) { inOnClick(vItem) }
-			vPrev = vItem
 		}
 	}
 }
@@ -122,12 +118,10 @@ private fun ContextMenuRow(inLabel: String, inOnClick: () -> Unit) {
 	}
 }
 
-// Heuristic for visually splitting an editor context menu into logical groups: a divider goes
-// between the clipboard ops (Cut/Copy/Paste) and the navigation/extra entries that follow
-// (Select All, Close, Close Others, …). Avoids needing a separate "separator" item type.
-private fun shouldInsertDivider(inPrev: ContextMenuItem, inCurr: ContextMenuItem): Boolean {
-	val vClipboard = setOf("cut", "copy", "paste")
-	val vPrevIsClipboard = inPrev.label.lowercase() in vClipboard
-	val vCurrIsClipboard = inCurr.label.lowercase() in vClipboard
-	return vPrevIsClipboard && !vCurrIsClipboard
-}
+// Locale-independent heuristic for splitting the menu: when there are four or more entries,
+// insert a divider before the last one. Matches the standard text-context-menu layout where
+// Cut / Copy / Paste are followed by "Select All" (in any locale — we don't need to match the
+// label text). Three-item menus (e.g. the tab context menu's Close / Close Others / Close All)
+// stay flat with no separator.
+private fun separatorBefore(inItems: List<ContextMenuItem>, inIdx: Int): Boolean =
+	inItems.size >= 4 && inIdx == inItems.lastIndex
