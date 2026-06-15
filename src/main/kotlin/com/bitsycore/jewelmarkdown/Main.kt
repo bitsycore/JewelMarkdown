@@ -129,10 +129,14 @@ fun main(inArgs: Array<String>) {
 	)
 
 	// macOS only: route the app's Swing JMenuBar to the system menu bar at the top of the
-	// screen instead of inside the window. Both properties must be set before AWT initializes.
+	// screen instead of inside the window, and tell AWT to follow the OS appearance so the
+	// native window chrome (title bar, file dialogs, sheets) renders dark when the system
+	// is in dark mode instead of always falling back to Aqua light. All three properties
+	// must be set before AWT initializes.
 	if (kIsMac) {
 		System.setProperty("apple.laf.useScreenMenuBar", "true")
 		System.setProperty("apple.awt.application.name", "JMD")
+		System.setProperty("apple.awt.application.appearance", "system")
 	}
 
 	runApp(inArgs)

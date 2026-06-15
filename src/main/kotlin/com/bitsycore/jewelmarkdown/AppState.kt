@@ -153,12 +153,15 @@ class AppState(inIsDark: Boolean) {
 	}
 }
 
-// Creates and remembers the app state. Loads saved preferences, then conditionally restores
-// the previous session and/or opens the bundled demo document.
+// Creates and remembers the app state. Seeds dark/light from the OS appearance, then loads
+// saved preferences on top — so a fresh install matches the system, while persisted
+// preferences win on subsequent launches. When Settings.followSystemTheme is on we also keep
+// AppState.isDark synced to the OS in real time via a LaunchedEffect.
 @Composable
-fun rememberAppState(inOpenDemo: Boolean = false): AppState =
-	remember {
-		AppState(inIsDark = true).apply {
+fun rememberAppState(inOpenDemo: Boolean = false): AppState {
+	val vSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+	val vState = remember {
+		AppState(inIsDark = vSystemDark).apply {
 			val vSession = Persistence.load(this)
 			if (settings.restoreSession) {
 				for (vPath in vSession.paths) {
@@ -170,3 +173,8 @@ fun rememberAppState(inOpenDemo: Boolean = false): AppState =
 			if (inOpenDemo) openDemo()
 		}
 	}
+	androidx.compose.runtime.LaunchedEffect(vSystemDark, vState.settings.followSystemTheme) {
+		if (vState.settings.followSystemTheme) vState.isDark = vSystemDark
+	}
+	return vState
+}

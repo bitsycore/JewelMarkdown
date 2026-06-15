@@ -970,8 +970,19 @@ private fun AppearanceSettings(inState: AppState) {
 	val vSettings = inState.settings
 	GroupHeader("Theme")
 	Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-		Chip("Dark", inState.isDark) { inState.isDark = true }
-		Chip("Light", !inState.isDark) { inState.isDark = false }
+		// System: lets rememberAppState's LaunchedEffect keep isDark mirrored to the OS.
+		// Dark / Light: turn the follow flag off so the manual choice sticks across runs.
+		Chip("System", vSettings.followSystemTheme) {
+			vSettings.followSystemTheme = true
+		}
+		Chip("Dark", !vSettings.followSystemTheme && inState.isDark) {
+			vSettings.followSystemTheme = false
+			inState.isDark = true
+		}
+		Chip("Light", !vSettings.followSystemTheme && !inState.isDark) {
+			vSettings.followSystemTheme = false
+			inState.isDark = false
+		}
 	}
 	GroupHeader("Background gradient")
 	Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -83,6 +83,10 @@ enum class EditorFont(val displayName: String, val family: FontFamily) {
 // All user-configurable UI settings. Properties are observable so edits apply live.
 @Stable
 class Settings {
+	// When on, the dark/light theme mirrors the OS appearance and updates live. When off,
+	// AppState.isDark is whatever the user picked manually (and stays persisted).
+	var followSystemTheme by mutableStateOf(true)
+
 	// Background gradient preset.
 	var gradient by mutableStateOf(GradientPreset.Mica)
 
@@ -119,6 +123,7 @@ class Settings {
 
 	// Restores every setting to its default value.
 	fun reset() {
+		followSystemTheme = true
 		gradient = GradientPreset.Mica
 		paneCornerDp = 8f
 		contentGapDp = 12f

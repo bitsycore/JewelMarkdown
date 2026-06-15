@@ -19,6 +19,7 @@ object Persistence {
 
 		val vSettings = inState.settings
 		vProps.getProperty("isDark")?.toBooleanStrictOrNull()?.let { inState.isDark = it }
+		vProps.getProperty("followSystemTheme")?.toBooleanStrictOrNull()?.let { vSettings.followSystemTheme = it }
 		vProps.getProperty("gradient")?.let { vName -> GradientPreset.entries.firstOrNull { it.name == vName }?.let { vSettings.gradient = it } }
 		vProps.getProperty("editorFont")?.let { vName -> EditorFont.entries.firstOrNull { it.name == vName }?.let { vSettings.editorFont = it } }
 		vProps.getProperty("paneCorner")?.toFloatOrNull()?.let { vSettings.paneCornerDp = it }
@@ -50,6 +51,7 @@ object Persistence {
 		val vProps = Properties()
 		val vSettings = inState.settings
 		vProps.setProperty("isDark", inState.isDark.toString())
+		vProps.setProperty("followSystemTheme", vSettings.followSystemTheme.toString())
 		vProps.setProperty("gradient", vSettings.gradient.name)
 		vProps.setProperty("editorFont", vSettings.editorFont.name)
 		vProps.setProperty("paneCorner", vSettings.paneCornerDp.toString())
