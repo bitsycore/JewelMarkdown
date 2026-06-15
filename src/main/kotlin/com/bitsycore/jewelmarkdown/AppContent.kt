@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -48,8 +49,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -597,31 +600,42 @@ private fun Pane(inModifier: Modifier, inCornerDp: Dp, inContent: @Composable Bo
 
 // Editor pane: a Markdown formatting toolbar above the raw text area, with a thin change
 // gutter on the left edge that paints a stripe for each line modified since the last save.
+// The text area and the gutter share a single vertical scroll, so the stripes stay aligned
+// with the rendered lines even when the document is taller than the viewport.
 @Composable
 private fun EditorPane(inState: AppState, inDoc: Document, inModifier: Modifier) {
 	var vLayout by remember(inDoc) { mutableStateOf<TextLayoutResult?>(null) }
 	val vChanged = remember(inDoc.fieldValue.text, inDoc.savedText) {
 		computeChangedLines(inDoc.savedText, inDoc.fieldValue.text)
 	}
+	val vScrollState = rememberScrollState()
 	Column(inModifier) {
 		MarkdownToolbar(inState)
 		Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = JewelTheme.globalColors.borders.normal)
-		Row(Modifier.weight(1f).fillMaxWidth()) {
-			ChangeGutter(vLayout, vChanged, Modifier.fillMaxHeight())
-			EditorTextArea(inState, inDoc, Modifier.weight(1f).fillMaxHeight()) { vLayout = it }
+		Box(
+			modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(vScrollState),
+		) {
+			Row(
+				modifier = Modifier.fillMaxWidth().padding(10.dp),
+				verticalAlignment = Alignment.Top,
+			) {
+				ChangeGutter(vLayout, vChanged)
+				Spacer(Modifier.width(6.dp))
+				EditorTextArea(inState, inDoc, Modifier.weight(1f)) { vLayout = it }
+			}
 		}
 	}
 }
 
 // Vertical strip painted with a stripe per line that differs from the last-saved content.
-// Positions come straight from the TextArea's TextLayoutResult so the stripes line up with
-// the actual text rendering even when the font size changes.
+// Sized to the text layout's full height so it scrolls together with the editor text inside
+// the shared vertical scroll container.
 @Composable
-private fun ChangeGutter(inLayout: TextLayoutResult?, inChanged: Set<Int>, inModifier: Modifier) {
+private fun ChangeGutter(inLayout: TextLayoutResult?, inChanged: Set<Int>) {
 	val vColor = Color(0xFFE2A03F)
-	Canvas(
-		modifier = inModifier.width(3.dp).padding(top = 10.dp, bottom = 10.dp),
-	) {
+	val vDensity = LocalDensity.current
+	val vHeightDp = with(vDensity) { (inLayout?.size?.height ?: 0).toDp() }
+	Canvas(modifier = Modifier.width(3.dp).height(vHeightDp)) {
 		val vLayout2 = inLayout ?: return@Canvas
 		for (vLineIdx in inChanged) {
 			if (vLineIdx >= vLayout2.lineCount) continue
@@ -653,9 +667,10 @@ private fun computeChangedLines(inSaved: String, inCurrent: String): Set<Int> {
 	return vChanged
 }
 
-// Raw Markdown editor, monospace, with live Markdown syntax highlighting. Undecorated so it
-// blends into its pane card rather than drawing a second border. Forwards the text layout
-// result so the change gutter on the left can align with the rendered lines.
+// Raw Markdown editor, monospace, with live Markdown syntax highlighting. We use the lower-
+// level BasicTextField so we own scrolling (shared with the change gutter via a parent
+// verticalScroll) and so we can keep the VisualTransformation-based syntax highlighting —
+// the newer TextFieldState API doesn't support inline styled output.
 @Composable
 private fun EditorTextArea(
 	inState: AppState,
@@ -668,18 +683,26 @@ private fun EditorTextArea(
 		JewelTheme.defaultTextStyle.copy(
 			fontFamily = inState.settings.editorFont.family,
 			fontSize = inState.settings.editorFontSizeSp.sp,
+			color = JewelTheme.globalColors.text.normal,
 		)
 	val vTransformation = remember(inState.isDark) { MarkdownSyntaxTransformation(inState.isDark) }
-	TextArea(
-		value = vDoc.fieldValue,
-		onValueChange = { vDoc.fieldValue = it },
-		modifier = inModifier.padding(10.dp),
-		textStyle = vEditorStyle,
-		visualTransformation = vTransformation,
-		onTextLayout = inOnTextLayout,
-		undecorated = true,
-		placeholder = { Text("Write some Markdown…") },
-	)
+	Box(modifier = inModifier) {
+		if (vDoc.fieldValue.text.isEmpty()) {
+			Text(
+				"Write some Markdown…",
+				style = vEditorStyle.copy(color = JewelTheme.globalColors.text.info),
+			)
+		}
+		BasicTextField(
+			value = vDoc.fieldValue,
+			onValueChange = { vDoc.fieldValue = it },
+			textStyle = vEditorStyle,
+			visualTransformation = vTransformation,
+			onTextLayout = inOnTextLayout,
+			cursorBrush = SolidColor(JewelTheme.globalColors.text.normal),
+			modifier = Modifier.fillMaxWidth(),
+		)
+	}
 }
 
 // Writerside-style Markdown helpers. Each button applies a formatting action to the active
