@@ -1,0 +1,153 @@
+name: Release
+
+# Triggers on any `v*` tag push (e.g. v1.0.0) and via the Actions UI's "Run workflow" button.
+# The matrix job builds installers + standalone bundles for each desktop platform; the final
+# `release` job collects every artifact and publishes a single GitHub Release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Provides a JDK for the Gradle daemon. The build's own toolchain (vendor = JETBRAINS)
+      # downloads JBR 21 separately via the foojay resolver — this step just bootstraps Gradle.
+      - name: Set up bootstrap JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew executable
+        if: matrix.platform != 'windows'
+        run: chmod +x ./gradlew
+
+      # Native installer for the current OS: .dmg on macOS, .msi on Windows, .deb + .rpm on
+      # Linux. Compose Desktop's `packageReleaseDistributionForCurrentOS` dispatches to the
+      # right `package<Format>` task based on the runner.
+      - name: Build native installer(s)
+        run: ./gradlew --no-daemon packageReleaseDistributionForCurrentOS
+
+      # The unpacked, runnable folder/bundle — `.app` on macOS, `JewelMarkdown/` directory
+      # everywhere else. Same JRE+classpath layout the installers wrap.
+      - name: Build release distributable (standalone)
+        run: ./gradlew --no-daemon createReleaseDistributable
+
+      - name: Zip standalone .app (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          cd build/compose/binaries/main-release/app
+          zip -ry "${{ github.workspace }}/JewelMarkdown-macos.zip" JewelMarkdown.app
+
+      - name: Zip standalone folder (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/compose/binaries/main-release/app/JewelMarkdown/* `
+            -DestinationPath JewelMarkdown-windows.zip
+
+      - name: Tar standalone folder (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          cd build/compose/binaries/main-release/app
+          tar -czf "${{ github.workspace }}/JewelMarkdown-linux.tar.gz" JewelMarkdown
+
+      # Build an AppImage from the Linux standalone distribution. appimagetool wraps the
+      # AppDir (a self-contained filesystem layout with AppRun launcher + desktop entry +
+      # icon) into a single executable .AppImage. ImageMagick is preinstalled on
+      # ubuntu-latest so we generate a flat 256x256 placeholder icon on the fly.
+      - name: Build AppImage (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          set -e
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+
+          rm -rf AppDir
+          mkdir -p AppDir/usr
+          cp -r build/compose/binaries/main-release/app/JewelMarkdown/. AppDir/usr/
+
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/JewelMarkdown" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          cat > AppDir/JewelMarkdown.desktop <<'EOF'
+          [Desktop Entry]
+          Name=JewelMarkdown
+          GenericName=Markdown Editor
+          Comment=Markdown editor with live preview
+          Exec=JewelMarkdown
+          Icon=JewelMarkdown
+          Type=Application
+          Categories=Office;TextEditor;Utility;
+          Terminal=false
+          EOF
+
+          convert -size 256x256 xc:'#2A2C34' AppDir/JewelMarkdown.png
+
+          ARCH=x86_64 ./appimagetool --no-appstream AppDir "${{ github.workspace }}/JewelMarkdown-x86_64.AppImage"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}
+          if-no-files-found: ignore
+          path: |
+            build/compose/binaries/main-release/dmg/*.dmg
+            build/compose/binaries/main-release/msi/*.msi
+            build/compose/binaries/main-release/deb/*.deb
+            build/compose/binaries/main-release/rpm/*.rpm
+            JewelMarkdown-macos.zip
+            JewelMarkdown-windows.zip
+            JewelMarkdown-linux.tar.gz
+            JewelMarkdown-x86_64.AppImage
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Needed by softprops/action-gh-release to create/update the release.
+    permissions:
+      contents: write
+    steps:
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: dist-*
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false

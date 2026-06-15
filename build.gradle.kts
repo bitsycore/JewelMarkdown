@@ -137,9 +137,12 @@ compose.desktop {
 		// may be a non-JBR JDK, which DecoratedWindow rejects. Force it onto the JBR.
 		javaHome = jbrLauncher.get().metadata.installationPath.asFile.absolutePath
 		nativeDistributions {
-			targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Dmg)
+			targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Dmg)
 			packageName = "JewelMarkdown"
 			packageVersion = "1.0.0"
+			description = "Compose for Desktop Markdown editor with Jewel UI."
+			vendor = "Bitsy"
+			licenseFile.set(project.file("LICENSE"))
 		}
 	}
 }
