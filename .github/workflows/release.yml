@@ -76,8 +76,8 @@ jobs:
 
       # Build an AppImage from the Linux standalone distribution. appimagetool wraps the
       # AppDir (a self-contained filesystem layout with AppRun launcher + desktop entry +
-      # icon) into a single executable .AppImage. ImageMagick is preinstalled on
-      # ubuntu-latest so we generate a flat 256x256 placeholder icon on the fly.
+      # icon) into a single executable .AppImage. Icon is a flat 256x256 placeholder PNG
+      # we generate with Python's stdlib so we don't depend on ImageMagick being preinstalled.
       - name: Build AppImage (Linux)
         if: matrix.platform == 'linux'
         run: |
@@ -108,7 +108,20 @@ jobs:
           Terminal=false
           EOF
 
-          convert -size 256x256 xc:'#2A2C34' AppDir/JewelMarkdown.png
+          python3 - <<'PYEOF'
+          import struct, zlib
+          w, h = 256, 256
+          r, g, b = 0x2A, 0x2C, 0x34
+          def chunk(t, d):
+              return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
+          sig = b'\x89PNG\r\n\x1a\n'
+          ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+          row = b'\x00' + bytes([r, g, b]) * w
+          idat = chunk(b'IDAT', zlib.compress(row * h))
+          iend = chunk(b'IEND', b'')
+          with open('AppDir/JewelMarkdown.png', 'wb') as f:
+              f.write(sig + ihdr + idat + iend)
+          PYEOF
 
           ARCH=x86_64 ./appimagetool --no-appstream AppDir "${{ github.workspace }}/JewelMarkdown-x86_64.AppImage"
 
