@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.layout.PaddingValues

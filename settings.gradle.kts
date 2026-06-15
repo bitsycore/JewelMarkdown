@@ -24,4 +24,4 @@ dependencyResolutionManagement {
 	}
 }
 
-rootProject.name = "JewelMarkdown"
+rootProject.name = "TopazMD"

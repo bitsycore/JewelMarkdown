@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import java.io.File
 import java.util.Properties
@@ -7,7 +7,7 @@ import java.util.Properties
 // (open tabs and the active tab) to a properties file in the user's home directory, so
 // they persist across runs.
 object Persistence {
-	private val kFile = File(System.getProperty("user.home"), ".jewelmarkdown/settings.properties")
+	private val kFile = File(System.getProperty("user.home"), ".topazmd/settings.properties")
 
 	// Applies any saved preferences onto the given state. Missing/invalid values are ignored.
 	// Returns the loaded session payload so callers can decide when to apply it (e.g. after
@@ -78,7 +78,7 @@ object Persistence {
 
 		runCatching {
 			kFile.parentFile?.mkdirs()
-			kFile.outputStream().use { vProps.store(it, "JewelMarkdown preferences") }
+			kFile.outputStream().use { vProps.store(it, "TopazMD preferences") }
 		}
 	}
 }

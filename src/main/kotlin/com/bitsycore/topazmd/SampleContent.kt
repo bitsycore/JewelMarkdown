@@ -1,8 +1,8 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 // Default document shown on first launch. It doubles as a feature showcase and
 // exercises every renderer path used by the preview pane.
-internal const val kSampleMarkdown = """# Jewel Markdown
+internal const val kSampleMarkdown = """# TopazMD
 
 A **Compose for Desktop** Markdown editor built with the JetBrains **Jewel** UI toolkit.
 Type on the left, see it rendered live on the right.

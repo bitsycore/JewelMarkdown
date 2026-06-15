@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -80,7 +80,7 @@ private fun buildMenuBar(inState: AppState): JMenuBar {
 		menu("Help") {
 			rawItem(it, "Open example") { inState.openDemo() }
 			it.addSeparator()
-			rawItem(it, "View on GitHub") { openUrl("https://github.com/bitsycore/JewelMarkdown") }
+			rawItem(it, "View on GitHub") { openUrl("https://github.com/bitsycore/TopazMD") }
 		}
 	)
 	return vBar

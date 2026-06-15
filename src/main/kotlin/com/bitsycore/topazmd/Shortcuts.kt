@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap

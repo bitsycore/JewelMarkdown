@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue

@@ -1,4 +1,4 @@
-# Jewel Markdown
+# TopazMD
 
 A **Compose for Desktop** Markdown editor with a live preview, built on the JetBrains
 **Jewel** UI toolkit (IntelliJ IDE look-and-feel). Cross-platform — macOS, Windows, Linux —
@@ -62,7 +62,7 @@ Outputs land in `build/compose/binaries/main-release/`:
 | OS      | Format(s) produced                         |
 |---------|--------------------------------------------|
 | macOS   | `.dmg` (+ `.app` bundle in `app/`)         |
-| Windows | `.msi` (+ exe in `app/JewelMarkdown/`)     |
+| Windows | `.msi` (+ exe in `app/TopazMD/`)     |
 | Linux   | `.deb`, `.rpm` (+ runnable folder in `app/`) |
 
 The standalone runnable folder/`.app` from `app/` works without an installer — just zip it
@@ -101,7 +101,7 @@ menus and features.
 ## Project structure
 
 ```
-src/main/kotlin/com/bitsycore/jewelmarkdown/
+src/main/kotlin/com/bitsycore/topazmd/
   Main.kt             application(), Jewel theme, decorated/fallback window, log filters
   AppState.kt         documents/tabs, theme, view mode, session-restore wiring
   AppContent.kt       title-bar menus, tabs, editor & preview cards, gutters, settings dialog
@@ -113,7 +113,7 @@ src/main/kotlin/com/bitsycore/jewelmarkdown/
   MaterialIcons.kt    Material Icons font family + MaterialIcon(name) helper
   Shortcuts.kt        ShortcutAction enum, Shortcut data class, defaultKeymap
   Settings.kt         Settings class, GradientPreset, EditorFont
-  Persistence.kt      saves/loads settings, session, keymap to ~/.jewelmarkdown/
+  Persistence.kt      saves/loads settings, session, keymap to ~/.topazmd/
   ProjectPanel.kt     activity bar + file-tree project panel
   SampleContent.kt    example document
   SyntaxHighlighting.kt  in-editor Markdown VisualTransformation

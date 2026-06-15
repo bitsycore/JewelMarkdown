@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier

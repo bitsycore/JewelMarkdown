@@ -44,7 +44,7 @@ jobs:
         if: matrix.platform != 'windows'
         run: chmod +x ./gradlew
 
-      # The unpacked, runnable folder/bundle — `.app` on macOS, `JewelMarkdown/` directory
+      # The unpacked, runnable folder/bundle — `.app` on macOS, `TopazMD/` directory
       # everywhere else. Same JRE+classpath layout the installers wrap, also used as input
       # for the AppImage step on Linux.
       - name: Build release distributable (standalone)
@@ -79,20 +79,20 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           cd build/compose/binaries/main-release/app
-          zip -ry "${{ github.workspace }}/JewelMarkdown-macos.zip" JewelMarkdown.app
+          zip -ry "${{ github.workspace }}/TopazMD-macos.zip" TopazMD.app
 
       - name: Zip standalone folder (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path build/compose/binaries/main-release/app/JewelMarkdown/* `
-            -DestinationPath JewelMarkdown-windows.zip
+          Compress-Archive -Path build/compose/binaries/main-release/app/TopazMD/* `
+            -DestinationPath TopazMD-windows.zip
 
       - name: Tar standalone folder (Linux)
         if: matrix.platform == 'linux'
         run: |
           cd build/compose/binaries/main-release/app
-          tar -czf "${{ github.workspace }}/JewelMarkdown-linux.tar.gz" JewelMarkdown
+          tar -czf "${{ github.workspace }}/TopazMD-linux.tar.gz" TopazMD
 
       # Build an AppImage from the Linux standalone distribution. appimagetool wraps the
       # AppDir (a self-contained filesystem layout with AppRun launcher + desktop entry +
@@ -112,43 +112,32 @@ jobs:
 
           rm -rf AppDir
           mkdir -p AppDir/usr
-          cp -r build/compose/binaries/main-release/app/JewelMarkdown/. AppDir/usr/
+          cp -r build/compose/binaries/main-release/app/TopazMD/. AppDir/usr/
 
           cat > AppDir/AppRun <<'EOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
-          exec "$HERE/usr/bin/JewelMarkdown" "$@"
+          exec "$HERE/usr/bin/TopazMD" "$@"
           EOF
           chmod +x AppDir/AppRun
 
-          cat > AppDir/JewelMarkdown.desktop <<'EOF'
+          cat > AppDir/TopazMD.desktop <<'EOF'
           [Desktop Entry]
-          Name=JewelMarkdown
+          Name=TopazMD
           GenericName=Markdown Editor
           Comment=Markdown editor with live preview
-          Exec=JewelMarkdown
-          Icon=JewelMarkdown
+          Exec=TopazMD
+          Icon=TopazMD
           Type=Application
           Categories=Office;TextEditor;Utility;
           Terminal=false
           EOF
 
-          python3 - <<'PYEOF'
-          import struct, zlib
-          w, h = 256, 256
-          r, g, b = 0x2A, 0x2C, 0x34
-          def chunk(t, d):
-              return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
-          sig = b'\x89PNG\r\n\x1a\n'
-          ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-          row = b'\x00' + bytes([r, g, b]) * w
-          idat = chunk(b'IDAT', zlib.compress(row * h))
-          iend = chunk(b'IEND', b'')
-          with open('AppDir/JewelMarkdown.png', 'wb') as f:
-              f.write(sig + ihdr + idat + iend)
-          PYEOF
+          # Use the real generated topaz icon (composited from icons/ic_launcher_*.png
+          # by the generateAppIcon Gradle task — already a dependency of createReleaseDistributable).
+          cp build/app-icon/topaz.png AppDir/TopazMD.png
 
-          ARCH=x86_64 "$APPIMAGETOOL" --no-appstream AppDir "${{ github.workspace }}/JewelMarkdown-x86_64.AppImage"
+          ARCH=x86_64 "$APPIMAGETOOL" --no-appstream AppDir "${{ github.workspace }}/TopazMD-x86_64.AppImage"
 
       # All installer + standalone files now live at the workspace root, so the upload
       # uses flat globs. Result on download: a single artifacts/ directory with every file
@@ -164,10 +153,10 @@ jobs:
             *.msi
             *.deb
             *.rpm
-            JewelMarkdown-macos.zip
-            JewelMarkdown-windows.zip
-            JewelMarkdown-linux.tar.gz
-            JewelMarkdown-x86_64.AppImage
+            TopazMD-macos.zip
+            TopazMD-windows.zip
+            TopazMD-linux.tar.gz
+            TopazMD-x86_64.AppImage
 
   release:
     name: Publish GitHub Release

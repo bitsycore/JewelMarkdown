@@ -2,7 +2,7 @@
 // CodeHighlighter interface's (also deprecated) MimeType-based overload.
 @file:Suppress("DEPRECATION")
 
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString

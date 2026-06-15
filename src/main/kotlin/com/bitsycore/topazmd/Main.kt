@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement

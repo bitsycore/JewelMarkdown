@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -147,9 +147,9 @@ class AppState(inIsDark: Boolean) {
 	// Window/title-bar caption for the active document; a dot marks unsaved changes.
 	// Falls back to the app name when no tab is open.
 	fun windowTitle(): String {
-		val vDoc = active ?: return "Jewel Markdown"
+		val vDoc = active ?: return "TopazMD"
 		val vDirtyMark = if (vDoc.isDirty) "● " else ""
-		return "$vDirtyMark${vDoc.title}  —  Jewel Markdown"
+		return "$vDirtyMark${vDoc.title}  —  TopazMD"
 	}
 }
 

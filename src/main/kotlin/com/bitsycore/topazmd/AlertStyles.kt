@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.ui.graphics.Color
 import org.jetbrains.jewel.intui.markdown.standalone.styling.extensions.github.alerts.dark

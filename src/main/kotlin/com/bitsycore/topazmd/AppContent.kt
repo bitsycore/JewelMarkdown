@@ -1,4 +1,4 @@
-package com.bitsycore.jewelmarkdown
+package com.bitsycore.topazmd
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ContextMenuArea
@@ -83,7 +83,7 @@ import java.io.File
 import org.jetbrains.jewel.ui.component.separator
 
 // Project's public source repository, used by the Help menu's GitHub link and the About panel.
-private const val kGitHubUrl = "https://github.com/bitsycore/JewelMarkdown"
+private const val kGitHubUrl = "https://github.com/bitsycore/TopazMD"
 
 // Window body below the title bar: a menu bar, the document tab strip, the editor/preview
 // split and an optional status bar, over the configured ambient gradient, with the settings
@@ -1090,7 +1090,7 @@ private fun OnOffRow(inLabel: String, inDescription: String, inValue: Boolean, i
 private fun AboutSettings() {
 	val vMuted = JewelTheme.globalColors.text.info
 	val vLink = JewelTheme.globalColors.borders.focused
-	Text("Jewel Markdown", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+	Text("TopazMD", fontWeight = FontWeight.Bold, fontSize = 15.sp)
 	Text("A Compose for Desktop Markdown editor built with JetBrains Jewel.", color = vMuted, fontSize = 13.sp)
 	Text("Kotlin 2.2 · Compose 1.10 · Jewel 0.34 · JetBrains Runtime 21", color = vMuted, fontSize = 12.sp)
 	Text("Licensed under the MIT License.", color = vMuted, fontSize = 12.sp)
@@ -1111,7 +1111,7 @@ private fun WelcomePanel(inState: AppState, inModifier: Modifier) {
 			horizontalAlignment = Alignment.CenterHorizontally,
 			verticalArrangement = Arrangement.spacedBy(12.dp),
 		) {
-			Text("Jewel Markdown", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+			Text("TopazMD", fontWeight = FontWeight.Bold, fontSize = 22.sp)
 			Text(
 				"No tabs open. Create a new document or open an existing file to get started.",
 				color = JewelTheme.globalColors.text.info,
