@@ -136,6 +136,22 @@ compose.desktop {
 		// The `run` task uses the Gradle daemon JVM unless javaHome is set; the daemon
 		// may be a non-JBR JDK, which DecoratedWindow rejects. Force it onto the JBR.
 		javaHome = jbrLauncher.get().metadata.installationPath.asFile.absolutePath
+		// JNA (Jewel's standalone dep) reflectively reads sun.misc.Unsafe.theUnsafe on every
+		// platform; JavaFX (Mermaid renderer) reaches into the AWT/Swing peer + Java2D
+		// internals, especially on macOS. These --add-opens are baked into the packaged
+		// app's launcher script so the .app / installed binary doesn't fail at startup with
+		// "Unable to make field … accessible" or "sun/misc/Unsafe" errors.
+		jvmArgs += listOf(
+			"--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+			"--add-opens", "java.base/java.lang=ALL-UNNAMED",
+			"--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
+			"--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+			"--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED",
+			"--add-opens", "java.desktop/sun.java2d=ALL-UNNAMED",
+			"--add-opens", "java.desktop/sun.java2d.opengl=ALL-UNNAMED",
+			"--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
+			"--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+		)
 		// ProGuard is on by default for release builds in Compose Desktop, but JavaFX
 		// (Mermaid), Jewel, JNA and JBR rely on extensive reflection that would need
 		// hundreds of keep rules to shrink safely. Disabling it makes packageRelease* just
