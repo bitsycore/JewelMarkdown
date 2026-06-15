@@ -67,6 +67,37 @@ private fun silenceNoisyLoggers(vararg inPrefixes: String) {
 	}
 }
 
+// Wraps System.err with a line-buffered filter that drops any complete line containing one of
+// the given needles. Used for messages that AWT/JDK code prints directly via System.err
+// instead of java.util.logging (notably the DataFlavor.tryToLoadClass ClassNotFoundException
+// dump and a few other System.err.println call sites in the JBR's IntelliJ-aware AWT).
+private fun installStderrLineFilter(vararg inDropContains: String) {
+	val vOriginal = System.err
+	val vNeedles = inDropContains.toList()
+	val vDelegate = object : java.io.OutputStream() {
+		private val vBuffer = java.io.ByteArrayOutputStream()
+		override fun write(inByte: Int) {
+			when (inByte) {
+				'\n'.code -> flushLine()
+				'\r'.code -> { /* strip CR; we re-emit just LF */ }
+				else -> vBuffer.write(inByte)
+			}
+		}
+		override fun write(inBytes: ByteArray, inOffset: Int, inLength: Int) {
+			for (vIdx in 0 until inLength) write(inBytes[inOffset + vIdx].toInt() and 0xFF)
+		}
+		override fun flush() {
+			vOriginal.flush()
+		}
+		private fun flushLine() {
+			val vLine = vBuffer.toString(Charsets.UTF_8)
+			vBuffer.reset()
+			if (vNeedles.none { vLine.contains(it) }) vOriginal.println(vLine)
+		}
+	}
+	System.setErr(java.io.PrintStream(vDelegate, true, Charsets.UTF_8))
+}
+
 // Application entry point. Builds the IntelliJ (Jewel) theme — dark by default — and opens a
 // window hosting the Markdown editor and live preview. On the JetBrains Runtime the window is
 // decorated by Jewel (custom TitleBar with the app menus). On any other JDK that API is absent
@@ -86,6 +117,16 @@ fun main(inArgs: Array<String>) {
 	// `getLogger("")` so the level on a parent is ignored. Filter at the handler level
 	// instead — that's the last thing every record passes through before it hits stderr.
 	silenceNoisyLoggers("javafx", "com.sun.javafx", "org.jetbrains.jewel")
+
+	// AWT's DataFlavor constructor prints directly to System.err (not via java.util.logging)
+	// when it can't load the IntelliJ "smart paste" transferables JBR tries to register on
+	// startup — those classes only exist inside the IDE, so we see one ClassNotFoundException
+	// dump per missing flavour. Wrap stderr with a line-level filter that drops just the
+	// known-noise lines and passes everything else through unchanged.
+	installStderrLineFilter(
+		"EditorCopyPasteHelperImpl",
+		"Unsupported JavaFX configuration",
+	)
 
 	// macOS only: route the app's Swing JMenuBar to the system menu bar at the top of the
 	// screen instead of inside the window. Both properties must be set before AWT initializes.
@@ -115,17 +156,11 @@ private fun runApp(inArgs: Array<String>): Unit = application {
 
 	IntUiTheme(vThemeDefinition, vStyling, false) {
 		// Override Jewel's IntelliJ-themed context menu (which loads expui/general/*.svg
-		// icons that aren't bundled in the standalone distribution — that's where the pink
-		// placeholder icons + GRAVE log noise came from) with Compose's built-in plain
-		// text-only context menu. The light/dark variant follows the current theme.
-		val vContextMenu =
-			if (vState.isDark) {
-				androidx.compose.foundation.DarkDefaultContextMenuRepresentation
-			} else {
-				androidx.compose.foundation.LightDefaultContextMenuRepresentation
-			}
+		// icons that aren't bundled in the standalone distribution — pink placeholders + log
+		// noise) with our own rounded, theme-matched popup. Same panelBackground + alpha-0.1
+		// outline the editor card uses, Jewel Divider for grouping, hover tint on rows.
 		androidx.compose.runtime.CompositionLocalProvider(
-			androidx.compose.foundation.LocalContextMenuRepresentation provides vContextMenu,
+			androidx.compose.foundation.LocalContextMenuRepresentation provides ThemedContextMenuRepresentation,
 		) {
 		val vOnClose: () -> Unit = {
 			Persistence.save(vState)
