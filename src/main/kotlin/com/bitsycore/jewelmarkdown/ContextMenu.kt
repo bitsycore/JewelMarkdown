@@ -11,8 +11,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -69,22 +71,29 @@ object ThemedContextMenuRepresentation : ContextMenuRepresentation {
 private fun ThemedContextMenuPanel(inItems: List<ContextMenuItem>, inOnClick: (ContextMenuItem) -> Unit) {
 	val vShape = RoundedCornerShape(6.dp)
 	val vOutline = JewelTheme.globalColors.text.normal.copy(alpha = 0.1f)
+	// Sized to the widest label (clamped to a comfortable min/max) rather than filling the
+	// window. `width(IntrinsicSize.Max)` makes the Column shrink-wrap its tallest row's
+	// intrinsic width; widthIn keeps very short menus readable and very long ones bounded.
 	Column(
 		modifier =
 			Modifier
-				.widthIn(min = 180.dp)
+				.widthIn(min = 160.dp, max = 320.dp)
+				.width(IntrinsicSize.Max)
 				.clip(vShape)
 				.background(JewelTheme.globalColors.panelBackground)
 				.border(1.dp, vOutline, vShape)
 				.padding(vertical = 4.dp),
 	) {
+		// Divider is the same Jewel component used by the editor card; uses a more saturated
+		// 18% wash than the outer outline so the separator actually reads inside the panel.
+		val vDividerColor = JewelTheme.globalColors.text.normal.copy(alpha = 0.18f)
 		var vPrev: ContextMenuItem? = null
 		for (vItem in inItems) {
 			if (vPrev != null && shouldInsertDivider(vPrev, vItem)) {
 				Divider(
 					Orientation.Horizontal,
-					Modifier.fillMaxWidth().padding(vertical = 4.dp),
-					color = vOutline,
+					Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 6.dp),
+					color = vDividerColor,
 				)
 			}
 			ContextMenuRow(vItem.label) { inOnClick(vItem) }
