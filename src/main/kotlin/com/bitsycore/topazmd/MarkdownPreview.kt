@@ -53,9 +53,7 @@ fun MarkdownPreview(
 		buildMarkdownStyling(inIsDark, vBaseStyle, vEditorStyle, vBorder)
 	}
 
-	// Block renderer for the GFM table / alert / strikethrough extensions. Mermaid fenced
-	// blocks (```mermaid) fall through to the default code-block renderer — no graphical
-	// preview is wired up.
+	// Block renderer for the GFM table / alert / strikethrough extensions.
 	val vRenderer = remember(vStyling, inIsDark) {
 		val vAlertStyling = buildAlertStyling(inIsDark, vBaseStyle.color)
 		val vRendererExtensions =

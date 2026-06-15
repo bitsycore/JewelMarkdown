@@ -61,27 +61,6 @@ dependencies {
 	implementation("dev.snipme:highlights:1.0.0")
 }
 
-// Downloads the mermaid.min.js bundle into the build's resources at build time, so the running
-// app can load it from the classpath and render diagrams fully offline (no runtime web fetch).
-val kMermaidVersion = "11.4.1"
-val downloadMermaid by tasks.registering {
-	val vOut = layout.buildDirectory.file("mermaid/mermaid.min.js").get().asFile
-	outputs.file(vOut)
-	doLast {
-		if (!vOut.exists() || vOut.length() < 1024) {
-			vOut.parentFile.mkdirs()
-			val vUrl = URI("https://cdn.jsdelivr.net/npm/mermaid@$kMermaidVersion/dist/mermaid.min.js").toURL()
-			vUrl.openStream().use { vInput -> vOut.outputStream().use { vInput.copyTo(it) } }
-		}
-	}
-}
-
-sourceSets.named("main") {
-	resources.srcDir(layout.buildDirectory.dir("mermaid"))
-}
-
-tasks.named("processResources") { dependsOn(downloadMermaid) }
-
 // Downloads Google's Material Icons Outlined font (legacy "icons" family — supports CSS-style
 // ligatures, so writing Text("folder") with this font family renders the folder glyph). About
 // 1MB OTF; bundled into the classpath so the app renders icons offline.

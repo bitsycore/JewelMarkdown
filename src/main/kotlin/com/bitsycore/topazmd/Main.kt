@@ -51,9 +51,8 @@ private val kIsJbr: Boolean = runCatching { Class.forName("com.jetbrains.JBR") }
 private const val kFlagDemo = "--demo"
 
 // Attaches a Filter to every handler on the root j.u.l. logger that drops records whose
-// loggerName starts with any of the given prefixes. Used to mute JavaFX's "unsupported
-// JavaFX configuration" WARNING and Jewel's "missing IntelliJ SVG icon" SEVERE errors
-// without affecting application logging.
+// loggerName starts with any of the given prefixes. Used to mute Jewel's "missing IntelliJ
+// SVG icon" SEVERE errors without affecting application logging.
 private fun silenceNoisyLoggers(vararg inPrefixes: String) {
 	val vRoot = java.util.logging.LogManager.getLogManager().getLogger("") ?: return
 	val vMatchers = inPrefixes.toList()
@@ -104,14 +103,11 @@ private fun installStderrLineFilter(vararg inDropContains: String) {
 // — or the user opted into a plain window via Settings — so we use a standard Compose Window
 // and reproduce the menus in an in-body header instead.
 fun main(inArgs: Array<String>) {
-	// JavaFX prints an "Unsupported JavaFX configuration" warning when it's loaded from the
-	// classpath instead of the JPMS module path — harmless in a non-modular Compose Desktop
-	// app, but noisy in the run log. Jewel's standalone distribution likewise emits SEVERE
-	// errors for missing IntelliJ context-menu SVG icons. Logger-level filtering wasn't
-	// enough: PlatformImpl pins its own logger level, and Jewel's logger writes through
+	// Jewel's standalone distribution emits SEVERE errors for missing IntelliJ context-menu
+	// SVG icons. Logger-level filtering isn't enough: Jewel's logger writes through
 	// `getLogger("")` so the level on a parent is ignored. Filter at the handler level
 	// instead — that's the last thing every record passes through before it hits stderr.
-	silenceNoisyLoggers("javafx", "com.sun.javafx", "org.jetbrains.jewel")
+	silenceNoisyLoggers("org.jetbrains.jewel")
 
 	// AWT's DataFlavor constructor prints directly to System.err (not via java.util.logging)
 	// when it can't load the IntelliJ "smart paste" transferables JBR tries to register on
@@ -120,7 +116,6 @@ fun main(inArgs: Array<String>) {
 	// known-noise lines and passes everything else through unchanged.
 	installStderrLineFilter(
 		"EditorCopyPasteHelperImpl",
-		"Unsupported JavaFX configuration",
 	)
 
 	// macOS only: route the app's Swing JMenuBar to the system menu bar at the top of the
