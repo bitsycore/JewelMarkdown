@@ -82,6 +82,9 @@ import java.awt.datatransfer.DataFlavor
 import java.io.File
 import org.jetbrains.jewel.ui.component.separator
 
+// Project's public source repository, used by the Help menu's GitHub link and the About panel.
+private const val kGitHubUrl = "https://github.com/bitsycore/JewelMarkdown"
+
 // Window body below the title bar: a menu bar, the document tab strip, the editor/preview
 // split and an optional status bar, over the configured ambient gradient, with the settings
 // overlay on top.
@@ -225,7 +228,9 @@ internal fun AppMenus(inState: AppState, inModifier: Modifier = Modifier) {
 			actionItem(inState, ShortcutAction.OpenSettings, vClose)
 		}
 		MenuButton("Help", vOpenMenu, vSetOpenMenu) { vClose ->
-			menuItem("Open demo file") { vClose(); inState.openDemo() }
+			menuItem("Open example") { vClose(); inState.openDemo() }
+			separator()
+			menuItem("View on GitHub") { vClose(); openUrl(kGitHubUrl) }
 		}
 	}
 }
@@ -1098,13 +1103,21 @@ private fun OnOffRow(inLabel: String, inDescription: String, inValue: Boolean, i
 	}
 }
 
-// About category: brief app info.
+// About category: brief app info, license and source link.
 @Composable
 private fun AboutSettings() {
 	val vMuted = JewelTheme.globalColors.text.info
+	val vLink = JewelTheme.globalColors.borders.focused
 	Text("Jewel Markdown", fontWeight = FontWeight.Bold, fontSize = 15.sp)
 	Text("A Compose for Desktop Markdown editor built with JetBrains Jewel.", color = vMuted, fontSize = 13.sp)
 	Text("Kotlin 2.2 · Compose 1.10 · Jewel 0.34 · JetBrains Runtime 21", color = vMuted, fontSize = 12.sp)
+	Text("Licensed under the MIT License.", color = vMuted, fontSize = 12.sp)
+	Text(
+		text = kGitHubUrl,
+		color = vLink,
+		fontSize = 12.sp,
+		modifier = Modifier.clickable { openUrl(kGitHubUrl) },
+	)
 }
 
 // Empty-state panel shown when no tabs are open: large title, brief hint, and shortcuts to
@@ -1126,7 +1139,6 @@ private fun WelcomePanel(inState: AppState, inModifier: Modifier) {
 				DefaultButton(onClick = { inState.newDocument() }) { Text("New file") }
 				DefaultButton(onClick = { chooseOpenFile()?.let { inState.openFile(it) } }) { Text("Open file…") }
 				DefaultButton(onClick = { chooseFolder()?.let { inState.projectRoot = it; inState.showProjectPanel = true } }) { Text("Open folder…") }
-				DefaultButton(onClick = { inState.openDemo() }) { Text("Open demo") }
 			}
 		}
 	}

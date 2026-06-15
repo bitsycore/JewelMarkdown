@@ -78,7 +78,9 @@ private fun buildMenuBar(inState: AppState): JMenuBar {
 	)
 	vBar.add(
 		menu("Help") {
-			rawItem(it, "Open demo file") { inState.openDemo() }
+			rawItem(it, "Open example") { inState.openDemo() }
+			it.addSeparator()
+			rawItem(it, "View on GitHub") { openUrl("https://github.com/bitsycore/JewelMarkdown") }
 		}
 	)
 	return vBar
