@@ -625,8 +625,14 @@ private fun Pane(inModifier: Modifier, inCornerDp: Dp, inContent: @Composable Bo
 @Composable
 private fun EditorPane(inState: AppState, inDoc: Document, inModifier: Modifier) {
 	var vLayout by remember(inDoc) { mutableStateOf<TextLayoutResult?>(null) }
-	val vText = inDoc.fieldValue.text
-	val vChanged = remember(vText, inDoc.savedText) { computeChangedLines(inDoc.savedText, vText) }
+	// Drive the gutters off the *layout's* text rather than the live document text. The layout
+	// always lags by one frame after a keystroke (Compose re-layouts after the state mutation),
+	// and computing the changed-line set from the live text while still drawing at the old
+	// layout's Y positions makes the stripes flash on the wrong line for that single frame.
+	// Keying the set and the line counts to the layout's input text keeps them strictly in
+	// sync with what the BasicTextField is actually showing.
+	val vLayoutText = vLayout?.layoutInput?.text?.text ?: ""
+	val vChanged = remember(vLayoutText, inDoc.savedText) { computeChangedLines(inDoc.savedText, vLayoutText) }
 	val vEditorStyle =
 		JewelTheme.defaultTextStyle.copy(
 			fontFamily = inState.settings.editorFont.family,
@@ -647,9 +653,9 @@ private fun EditorPane(inState: AppState, inDoc: Document, inModifier: Modifier)
 				if (vWrap) Modifier.fillMaxWidth().padding(10.dp)
 				else Modifier.horizontalScroll(vHScrollState).padding(10.dp)
 			Row(modifier = vRowModifier, verticalAlignment = Alignment.Top) {
-				LineNumbersGutter(vLayout, vText, vEditorStyle)
+				LineNumbersGutter(vLayout, vLayoutText, vEditorStyle)
 				Spacer(Modifier.width(4.dp))
-				ChangeGutter(vLayout, vText, vChanged)
+				ChangeGutter(vLayout, vLayoutText, vChanged)
 				Spacer(Modifier.width(6.dp))
 				EditorTextArea(
 					inDoc = inDoc,
