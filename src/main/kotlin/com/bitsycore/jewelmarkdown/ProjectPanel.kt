@@ -60,7 +60,7 @@ internal fun ActivityBar(inState: AppState) {
 			inSelected = inState.showProjectPanel,
 			inTooltip = "Project files",
 			inOnClick = { inState.showProjectPanel = !inState.showProjectPanel },
-		) { vTint -> FolderGlyph(vTint, Modifier.size(20.dp)) }
+		) { vTint -> MaterialIcon("folder", inSize = 20.sp, inTint = vTint) }
 	}
 }
 
@@ -97,25 +97,6 @@ private fun ActivityButton(
 	}
 }
 
-// A minimal folder icon drawn as a stroked path (avoids needing icon resources).
-@Composable
-private fun FolderGlyph(inTint: Color, inModifier: Modifier) {
-	Canvas(inModifier) {
-		val vW = size.width
-		val vH = size.height
-		val vPath =
-			Path().apply {
-				moveTo(vW * 0.10f, vH * 0.30f)
-				lineTo(vW * 0.42f, vH * 0.30f)
-				lineTo(vW * 0.50f, vH * 0.42f)
-				lineTo(vW * 0.90f, vH * 0.42f)
-				lineTo(vW * 0.90f, vH * 0.78f)
-				lineTo(vW * 0.10f, vH * 0.78f)
-				close()
-			}
-		drawPath(vPath, color = inTint, style = Stroke(width = size.minDimension * 0.09f))
-	}
-}
 
 // ==================
 // MARK: Project panel
@@ -208,11 +189,15 @@ private fun TreeRow(
 		verticalAlignment = Alignment.CenterVertically,
 		horizontalArrangement = Arrangement.spacedBy(4.dp),
 	) {
-		Text(
-			if (inIsDir) (if (inIsOpen) "▾" else "▸") else "  ",
-			color = JewelTheme.globalColors.text.info,
-			fontSize = 11.sp,
-		)
+		Box(modifier = Modifier.size(14.dp), contentAlignment = Alignment.Center) {
+			if (inIsDir) {
+				MaterialIcon(
+					inName = if (inIsOpen) "expand_more" else "chevron_right",
+					inSize = 14.sp,
+					inTint = JewelTheme.globalColors.text.info,
+				)
+			}
+		}
 		Text(
 			inLabel,
 			fontSize = 13.sp,

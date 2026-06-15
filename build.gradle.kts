@@ -80,6 +80,29 @@ sourceSets.named("main") {
 
 tasks.named("processResources") { dependsOn(downloadMermaid) }
 
+// Downloads Google's Material Icons Outlined font (legacy "icons" family — supports CSS-style
+// ligatures, so writing Text("folder") with this font family renders the folder glyph). About
+// 1MB OTF; bundled into the classpath so the app renders icons offline.
+val downloadMaterialIcons by tasks.registering {
+	val vOut = layout.buildDirectory.file("icons-font/material-icons-outlined.otf").get().asFile
+	outputs.file(vOut)
+	doLast {
+		if (!vOut.exists() || vOut.length() < 1024) {
+			vOut.parentFile.mkdirs()
+			val vUrl = URI(
+				"https://raw.githubusercontent.com/google/material-design-icons/master/font/MaterialIconsOutlined-Regular.otf"
+			).toURL()
+			vUrl.openStream().use { vInput -> vOut.outputStream().use { vInput.copyTo(it) } }
+		}
+	}
+}
+
+sourceSets.named("main") {
+	resources.srcDir(layout.buildDirectory.dir("icons-font"))
+}
+
+tasks.named("processResources") { dependsOn(downloadMaterialIcons) }
+
 // Pin the toolchain to the JetBrains Runtime so Kotlin compilation and the Compose
 // `run` task both use JBR (required by DecoratedWindow). foojay downloads it if absent.
 java {

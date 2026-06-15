@@ -324,7 +324,7 @@ internal fun ViewModeIcons(inState: AppState) {
 @Composable
 private fun ViewModeIconButton(inMode: ViewMode, inState: AppState) {
 	IconButtonBox(inState.viewMode == inMode, inMode.name, { inState.viewMode = inMode }) { vTint ->
-		ViewModeGlyph(inMode, vTint, Modifier.size(16.dp))
+		MaterialIcon(viewModeIconName(inMode), inSize = 18.sp, inTint = vTint)
 	}
 }
 
@@ -360,46 +360,17 @@ private fun IconButtonBox(inSelected: Boolean, inTooltip: String, inOnClick: () 
 @Composable
 internal fun SettingsIconButton(inState: AppState) {
 	IconButtonBox(inState.showSettings, "Settings", { inState.showSettings = true }) { vTint ->
-		SettingsGlyph(vTint, Modifier.size(16.dp))
+		MaterialIcon("tune", inSize = 18.sp, inTint = vTint)
 	}
 }
 
-// Draws a tiny glyph representing a view mode: one pane, split panes, or rendered lines.
-@Composable
-private fun ViewModeGlyph(inMode: ViewMode, inTint: Color, inModifier: Modifier) {
-	Canvas(inModifier) {
-		val vW = size.width
-		val vH = size.height
-		val vStroke = size.minDimension * 0.09f
-		drawRoundRect(color = inTint, cornerRadius = CornerRadius(size.minDimension * 0.14f), style = Stroke(width = vStroke))
-		when (inMode) {
-			ViewMode.Editor -> {} // single pane — just the outline
-			ViewMode.Split -> drawLine(inTint, Offset(vW / 2f, 0f), Offset(vW / 2f, vH), strokeWidth = vStroke)
-			ViewMode.Preview ->
-				for (vI in 1..3) {
-					val vY = vH * (0.25f + vI * 0.18f)
-					drawLine(inTint, Offset(vW * 0.25f, vY), Offset(vW * 0.75f, vY), strokeWidth = vStroke * 0.8f)
-				}
-		}
+// Maps a view-mode enum to the Material Icons ligature name shown in the title-bar switcher.
+private fun viewModeIconName(inMode: ViewMode): String =
+	when (inMode) {
+		ViewMode.Editor -> "edit_note"
+		ViewMode.Split -> "vertical_split"
+		ViewMode.Preview -> "visibility"
 	}
-}
-
-// Draws a "sliders" settings glyph: three lines, each with a knob.
-@Composable
-private fun SettingsGlyph(inTint: Color, inModifier: Modifier) {
-	Canvas(inModifier) {
-		val vW = size.width
-		val vH = size.height
-		val vStroke = size.minDimension * 0.09f
-		val vR = size.minDimension * 0.11f
-		for (vI in 0..2) {
-			val vY = vH * (0.25f + vI * 0.25f)
-			drawLine(inTint, Offset(vW * 0.12f, vY), Offset(vW * 0.88f, vY), strokeWidth = vStroke)
-			val vCx = vW * (if (vI % 2 == 0) 0.68f else 0.34f)
-			drawCircle(inTint, radius = vR, center = Offset(vCx, vY))
-		}
-	}
-}
 
 // ==================
 // MARK: Tabs
@@ -495,7 +466,7 @@ private fun TabItem(
 			Box(
 				modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = inOnClose).padding(horizontal = 4.dp),
 			) {
-				Text("×", fontSize = 14.sp, color = JewelTheme.globalColors.text.info)
+				MaterialIcon("close", inSize = 14.sp, inTint = JewelTheme.globalColors.text.info)
 			}
 		}
 	}
