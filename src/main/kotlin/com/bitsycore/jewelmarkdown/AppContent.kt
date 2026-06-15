@@ -46,12 +46,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.text.font.FontWeight
@@ -593,20 +595,74 @@ private fun Pane(inModifier: Modifier, inCornerDp: Dp, inContent: @Composable Bo
 	)
 }
 
-// Editor pane: a Markdown formatting toolbar above the raw text area.
+// Editor pane: a Markdown formatting toolbar above the raw text area, with a thin change
+// gutter on the left edge that paints a stripe for each line modified since the last save.
 @Composable
 private fun EditorPane(inState: AppState, inDoc: Document, inModifier: Modifier) {
+	var vLayout by remember(inDoc) { mutableStateOf<TextLayoutResult?>(null) }
+	val vChanged = remember(inDoc.fieldValue.text, inDoc.savedText) {
+		computeChangedLines(inDoc.savedText, inDoc.fieldValue.text)
+	}
 	Column(inModifier) {
 		MarkdownToolbar(inState)
 		Divider(Orientation.Horizontal, Modifier.fillMaxWidth(), color = JewelTheme.globalColors.borders.normal)
-		EditorTextArea(inState, inDoc, Modifier.weight(1f).fillMaxWidth())
+		Row(Modifier.weight(1f).fillMaxWidth()) {
+			ChangeGutter(vLayout, vChanged, Modifier.fillMaxHeight())
+			EditorTextArea(inState, inDoc, Modifier.weight(1f).fillMaxHeight()) { vLayout = it }
+		}
 	}
 }
 
-// Raw Markdown editor, monospace, with live Markdown syntax highlighting. Undecorated so it
-// blends into its pane card rather than drawing a second border.
+// Vertical strip painted with a stripe per line that differs from the last-saved content.
+// Positions come straight from the TextArea's TextLayoutResult so the stripes line up with
+// the actual text rendering even when the font size changes.
 @Composable
-private fun EditorTextArea(inState: AppState, inDoc: Document, inModifier: Modifier) {
+private fun ChangeGutter(inLayout: TextLayoutResult?, inChanged: Set<Int>, inModifier: Modifier) {
+	val vColor = Color(0xFFE2A03F)
+	Canvas(
+		modifier = inModifier.width(3.dp).padding(top = 10.dp, bottom = 10.dp),
+	) {
+		val vLayout2 = inLayout ?: return@Canvas
+		for (vLineIdx in inChanged) {
+			if (vLineIdx >= vLayout2.lineCount) continue
+			val vTop = vLayout2.getLineTop(vLineIdx)
+			val vBottom = vLayout2.getLineBottom(vLineIdx)
+			drawRect(
+				color = vColor,
+				topLeft = Offset(0f, vTop),
+				size = Size(size.width, vBottom - vTop),
+			)
+		}
+	}
+}
+
+// Per-line diff against the last-saved text: a line is "changed" if it doesn't have an
+// identical counterpart at the same index in the saved content. A whole-document Myers diff
+// would be more accurate (it could detect inserts and shift line numbers), but a simple
+// index-based comparison is fast, allocation-light, and matches the common edit-and-save flow.
+private fun computeChangedLines(inSaved: String, inCurrent: String): Set<Int> {
+	if (inSaved == inCurrent) return emptySet()
+	val vSavedLines = inSaved.split('\n')
+	val vCurrentLines = inCurrent.split('\n')
+	val vChanged = HashSet<Int>(vCurrentLines.size)
+	for (vIdx in vCurrentLines.indices) {
+		if (vIdx >= vSavedLines.size || vSavedLines[vIdx] != vCurrentLines[vIdx]) {
+			vChanged.add(vIdx)
+		}
+	}
+	return vChanged
+}
+
+// Raw Markdown editor, monospace, with live Markdown syntax highlighting. Undecorated so it
+// blends into its pane card rather than drawing a second border. Forwards the text layout
+// result so the change gutter on the left can align with the rendered lines.
+@Composable
+private fun EditorTextArea(
+	inState: AppState,
+	inDoc: Document,
+	inModifier: Modifier,
+	inOnTextLayout: (TextLayoutResult) -> Unit = {},
+) {
 	val vDoc = inDoc
 	val vEditorStyle =
 		JewelTheme.defaultTextStyle.copy(
@@ -620,6 +676,7 @@ private fun EditorTextArea(inState: AppState, inDoc: Document, inModifier: Modif
 		modifier = inModifier.padding(10.dp),
 		textStyle = vEditorStyle,
 		visualTransformation = vTransformation,
+		onTextLayout = inOnTextLayout,
 		undecorated = true,
 		placeholder = { Text("Write some Markdown…") },
 	)
