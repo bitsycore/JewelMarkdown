@@ -1096,7 +1096,7 @@ private fun AboutSettings() {
 	val vLink = JewelTheme.globalColors.borders.focused
 	Text("TopazMD", fontWeight = FontWeight.Bold, fontSize = 15.sp)
 	Text("A Compose for Desktop Markdown editor built with JetBrains Jewel.", color = vMuted, fontSize = 13.sp)
-	Text("Kotlin 2.2 · Compose 1.10 · Jewel 0.34 · JetBrains Runtime 21", color = vMuted, fontSize = 12.sp)
+	Text("Kotlin 2.4 · Compose 1.11 · Jewel 0.37 · JetBrains Runtime 25", color = vMuted, fontSize = 12.sp)
 	Text("Licensed under the MIT License.", color = vMuted, fontSize = 12.sp)
 	Text(
 		text = kGitHubUrl,

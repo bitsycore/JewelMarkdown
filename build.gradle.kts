@@ -1,28 +1,16 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.awt.BasicStroke
-import java.awt.Color
-import java.awt.GradientPaint
 import java.awt.RenderingHints
-import java.awt.geom.Line2D
-import java.awt.geom.Path2D
-import java.awt.geom.Point2D
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
-import java.io.File
 import java.net.URI
 import javax.imageio.ImageIO
 
-// Build script for the TopazMD desktop app.
-// Versions are pinned to a combination verified against Maven Central:
-// Jewel 0.34.0 (IntelliJ Platform 253) was compiled against stable Compose 1.10.0,
-// Kotlin 2.2.0 and JDK 21 — matching the Compose plugin and JBR used here.
-
 plugins {
-	kotlin("jvm") version "2.2.0"
-	id("org.jetbrains.kotlin.plugin.compose") version "2.2.0"
-	id("org.jetbrains.compose") version "1.10.3"
+	kotlin("jvm") version "2.4.0"
+	id("org.jetbrains.kotlin.plugin.compose") version "2.4.0"
+	id("org.jetbrains.compose") version "1.11.1"
 }
 
 group = "com.bitsycore"
@@ -34,7 +22,7 @@ repositories {
 }
 
 // All org.jetbrains.jewel:* modules must share the exact same version string.
-val kJewelVersion = "0.34.0-253.32098.101"
+val kJewelVersion = "0.37.0-262.4852.51"
 
 dependencies {
 	implementation(compose.desktop.currentOs)
@@ -58,7 +46,7 @@ dependencies {
 	implementation("org.jetbrains.jewel:jewel-markdown-extensions-autolink:$kJewelVersion")
 
 	// Syntax-highlighting engine used to color fenced code blocks in the preview.
-	implementation("dev.snipme:highlights:1.0.0")
+	implementation("dev.snipme:highlights:1.1.0")
 }
 
 // Downloads Google's Material Icons Outlined font (legacy "icons" family — supports CSS-style
@@ -223,14 +211,14 @@ fun DataOutputStream.writeIntLE(inValue: Int) {
 // `run` task both use JBR (required by DecoratedWindow). foojay downloads it if absent.
 java {
 	toolchain {
-		languageVersion.set(JavaLanguageVersion.of(21))
+		languageVersion.set(JavaLanguageVersion.of(25))
 		vendor.set(JvmVendorSpec.JETBRAINS)
 	}
 }
 
 kotlin {
 	compilerOptions {
-		jvmTarget = JvmTarget.JVM_21
+		jvmTarget = JvmTarget.JVM_25
 		// Jewel's Markdown and theming APIs are gated behind an opt-in annotation.
 		optIn.addAll(
 			"org.jetbrains.jewel.foundation.ExperimentalJewelApi",
@@ -242,7 +230,7 @@ kotlin {
 // Resolve the JBR provisioned by the toolchain so the Compose `run` task can target it.
 val jbrLauncher =
 	javaToolchains.launcherFor {
-		languageVersion.set(JavaLanguageVersion.of(21))
+		languageVersion.set(JavaLanguageVersion.of(25))
 		vendor.set(JvmVendorSpec.JETBRAINS)
 	}
 
@@ -261,6 +249,10 @@ compose.desktop {
 			"--add-opens", "java.base/java.lang=ALL-UNNAMED",
 			"--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
 			"--add-opens", "java.base/java.nio=ALL-UNNAMED",
+			// JDK 25 promotes System::load (and friends) to "restricted methods"; Skiko's
+			// LibraryLoader needs them. Without this flag every launch prints a 4-line
+			// stderr warning, and a future JDK will block the call outright.
+			"--enable-native-access=ALL-UNNAMED",
 		)
 		// ProGuard is on by default for release builds in Compose Desktop, but Jewel, JNA and
 		// JBR rely on extensive reflection that would need hundreds of keep rules to shrink

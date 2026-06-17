@@ -3,7 +3,7 @@
 A **Compose for Desktop** Markdown editor with a live preview, built on the JetBrains
 **Jewel** UI toolkit (IntelliJ IDE look-and-feel). Cross-platform — macOS, Windows, Linux —
 runs on either the JetBrains Runtime (custom title bar, "Islands" look) or any standard JDK
-21+ (OS-decorated window, same functionality).
+25+ (OS-decorated window, same functionality).
 
 ## Highlights
 
@@ -84,21 +84,21 @@ and standalone bundles for every desktop platform and attaches them to a GitHub 
 ## Requirements
 
 The build declares a `vendor = JETBRAINS` Java toolchain and the **foojay** resolver
-downloads JBR 21 automatically on first build — no manual JDK setup needed. The JBR is
+downloads JBR 25 automatically on first build — no manual JDK setup needed. The JBR is
 required when running with Jewel's `DecoratedWindow` (custom title bar). On a non-JBR JDK
 the app transparently falls back to a standard OS-decorated Compose `Window` with the same
 menus and features.
 
 ## Tech stack
 
-| Component        | Version                  |
-|------------------|--------------------------|
-| Kotlin           | 2.2.0                    |
-| Compose Desktop  | 1.10.3                   |
-| Jewel            | 0.34.0-253.32098.101     |
-| Material Icons   | OTF font from Google     |
-| Gradle           | 9.5.0                    |
-| Runtime          | JetBrains Runtime 21     |
+| Component        | Version              |
+|------------------|----------------------|
+| Kotlin           | 2.2.0                |
+| Compose Desktop  | 1.10.3               |
+| Jewel            | 0.34.0-253.32098.101 |
+| Material Icons   | OTF font from Google |
+| Gradle           | 9.5.0                |
+| Runtime          | JetBrains Runtime 25 |
 
 ## License
 

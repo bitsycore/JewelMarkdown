@@ -50,12 +50,18 @@ private val kIsJbr: Boolean = runCatching { Class.forName("com.jetbrains.JBR") }
 // changes without having to pick a file from disk.
 private const val kFlagDemo = "--demo"
 
-// Attaches a Filter to every handler on the root j.u.l. logger that drops records whose
-// loggerName starts with any of the given prefixes. Used to mute Jewel's "missing IntelliJ
-// SVG icon" SEVERE errors without affecting application logging.
+// Mutes every j.u.l. logger whose name starts with one of the given prefixes. Belt-and-
+// suspenders: sets the logger level to OFF (filters records at the logger, before they reach
+// handlers), AND attaches a Filter to every root handler (catches records that arrive via a
+// logger we didn't pre-create with `getLogger`, since Filter inspects the record's logger
+// name string). Used to mute Jewel's "missing IntelliJ SVG icon" SEVERE errors and the JBR
+// 25 reflection-failure WARNINGs from Jewel's macOS title-bar code.
 private fun silenceNoisyLoggers(vararg inPrefixes: String) {
-	val vRoot = java.util.logging.LogManager.getLogManager().getLogger("") ?: return
 	val vMatchers = inPrefixes.toList()
+	for (vPrefix in vMatchers) {
+		java.util.logging.Logger.getLogger(vPrefix).level = java.util.logging.Level.OFF
+	}
+	val vRoot = java.util.logging.LogManager.getLogManager().getLogger("") ?: return
 	for (vHandler in vRoot.handlers) {
 		val vExisting = vHandler.filter
 		vHandler.filter = java.util.logging.Filter { vRecord ->
@@ -116,6 +122,14 @@ fun main(inArgs: Array<String>) {
 	// known-noise lines and passes everything else through unchanged.
 	installStderrLineFilter(
 		"EditorCopyPasteHelperImpl",
+		// JDK 25 prints a multi-line warning for each restricted/deprecated native API
+		// usage that we can't fix from our side (Jewel uses sun.misc.Unsafe internally).
+		// Drop just the warning preamble and the "consider reporting" / "will be removed"
+		// follow-ups — application logs pass through untouched.
+		"A terminally deprecated method in sun.misc.Unsafe",
+		"sun.misc.Unsafe::objectFieldOffset",
+		"Please consider reporting this to the maintainers of class org.jetbrains.jewel",
+		"sun.misc.Unsafe::objectFieldOffset will be removed",
 	)
 
 	// macOS only: route the app's Swing JMenuBar to the system menu bar at the top of the
